@@ -239,7 +239,7 @@ mod tests {
         let token = jsonwebtoken::encode(
             &header,
             &json!({ "sub": "s" }),
-            &jsonwebtoken::EncodingKey::from_secret(b"x"),
+            &jsonwebtoken::EncodingKey::from_secret(b"x").unwrap(),
         )
         .unwrap();
         for _ in 0..5 {

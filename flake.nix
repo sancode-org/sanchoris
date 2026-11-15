@@ -94,7 +94,7 @@
               inherit (finalAttrs) pname version src;
               inherit pnpm;
               fetcherVersion = 5;
-              hash = "sha256-qa6X9nI39jos/vEzNE+1cPSosUAElS90FMN5RERzG5A=";
+              hash = "sha256-WEQcXX0B8/ZplCFiJ5Dllp+YYoFsgfxR3EI/MEoQ8O4=";
             };
             nativeBuildInputs = [
               nodejs
@@ -146,6 +146,7 @@
               "sanchoris-dynamo-create"
             ];
             doCheck = false;
+            dontCargoUseSystemLibs = true;
           };
           workspaceCommand = pkgs.writeShellScriptBin "sanchoris" ''
             exec ${nodejs}/bin/node ${web}/share/sanchoris/workspace-agent/sanchoris.mjs "$@"
