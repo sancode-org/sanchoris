@@ -16,5 +16,8 @@ The previous implementation at `sancode-org/sanchoris-old` can be read for refer
 ## Conventions
 
 - Documentation, code comments, test names and commit messages are in English. User-facing text is written in English and translated through translation files.
-- Stack: Rust for the backend (engine, API, workers) and TypeScript with React for the UI, following the shared new-project stack (Nix flake, one check command, CI on GitHub Actions).
+- Stack: follow the shared new-project stack (`notes/new-project-stack.md`, `notes/lang/rust.md`, `notes/lang/typescript.md` in agents-share) and section 1.1 of `projects/sanchoris/implementation.md`.
+  - Rust (edition 2024) for the backend. Business logic, state transitions and input constraints are written in Lean, proved, and generated into Rust with leanfran (`conao3/lean-leanfran`). Every generated function called from Rust has at least one useful theorem, audited with leanassay (`#assay`).
+  - TypeScript (Node 26, pnpm, vite-plus) for the UI with React 19, react-aria-components, Tailwind CSS v4 and lucide-react. Pure computations in the UI and the workspace agent are written in Lean and generated with the leanfran TypeScript backend, with theorems audited the same way.
+  - Nix flake for everything; `make check` is the only verification entry point and runs the Rust checks and `vp run check`.
 - Commit directly to `master` after the check command passes.
