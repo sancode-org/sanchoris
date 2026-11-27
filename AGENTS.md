@@ -5,9 +5,9 @@
 The product design lives outside this repository, in the private `conao3/idea` repository. Read these before changing code:
 
 - `projects/sanchoris/README.md`: the core value (predictable skills), terms, data, accounts, billing and plans, screens.
-- `projects/sanchoris/skill.md`: predictable skills, nesting, user launch, sessions, projects, triggers, the engine.
+- `projects/sanchoris/skill.md`: predictable skills, nesting, user launch, threads, projects, triggers, the engine.
 - `projects/sanchoris/architecture.md`: components and stack, data, boundaries, hosts and the driver, secrets, security and audit, build order, tests.
-- `projects/design/sanchoris-flow/README.md`: the session screen with the flow panel (design A).
+- `projects/design/sanchoris-flow/README.md`: the thread screen with the flow panel (design A).
 - `projects/design/sanchoris-poc/README.md`: the other screens.
 
 The previous implementation at `sancode-org/sanchoris-old` can be read for reference.
