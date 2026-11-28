@@ -1,4 +1,4 @@
-GENERATED := crates/core/src/generated apps/frontend/src/generated
+GENERATED := 'crates/*/src/generated/*' 'apps/*/src/generated/*'
 
 .PHONY: check generate format
 

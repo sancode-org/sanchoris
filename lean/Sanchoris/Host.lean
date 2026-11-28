@@ -1,6 +1,5 @@
 namespace Sanchoris.Host
 
-/-- Whether a host can take one more workspace: it is online and runs fewer than `maxWorkspaces`. -/
 def canStartWorkspace (online : Bool) (running maxWorkspaces : Nat) : Bool :=
   online && decide (running < maxWorkspaces)
 

@@ -24,9 +24,9 @@ The previous implementation at `sancode-org/sanchoris-old` can be read for refer
 ## Lean, Rust and TypeScript
 
 - Lean owns business logic, state transitions and input constraints: types, specifications, implementations and theorems. The code lives in the Lake package `lean/` (package `sanchoris`, modules `Sanchoris.*`).
-- `leanfran.toml` compiles every `Sanchoris.*` module with `leanfran generate` (leanfran 0.14.0) into Rust (`crates/core/src/generated`, module `crate::generated`) and TypeScript (`apps/frontend/src/generated`). One Lean definition serves both languages. The generated code is committed and never edited by hand; `make check` regenerates it and fails on a diff or an untracked file.
-- Rust owns input and output (HTTP, DynamoDB, S3, SQS, GitHub, Stripe, Firecracker) and the integration with crates, and calls the generated functions through `sanchoris-core`.
-- TypeScript owns the screens (`apps/frontend`) and the workspace program (`apps/sanchoris-agent`), and calls the generated modules for pure computations.
+- `leanfran.toml` compiles the Lean modules with `leanfran generate` (leanfran 0.14.0). It has one `[[generate]]` table per destination, and each table lists its modules by name. A module goes to the crate or app that the table of what Lean covers in `projects/sanchoris/architecture.md` names: a Rust crate gets `crates/<crate>/src/generated` (module `crate::generated`), a TypeScript app gets `apps/<app>/src/generated`. A module that both languages call is listed in a Rust table and a TypeScript table. The generated code is committed and never edited by hand; `make check` regenerates it and fails on a diff or an untracked file.
+- Rust owns input and output (HTTP, DynamoDB, S3, SQS, GitHub, Stripe, Firecracker) and the integration with crates, and calls the generated functions of its own crate.
+- TypeScript owns the screens (`apps/frontend`) and the workspace program (`apps/sanchoris-agent`), and calls the generated modules of its own app for pure computations.
 - `audit/` is a separate Lake package that requires `lean/` by path and leanassay by commit. `audit/Audit/<Module>.lean` has one `#assay` line per generated function that Rust or TypeScript calls. A change that adds such a function adds its theorems and its `#assay` line.
 
 | Function | Called from | Theorems | `#assay` |
