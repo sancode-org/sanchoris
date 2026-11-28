@@ -6,10 +6,11 @@
 //   node apps/sanchoris-agent/smoke/provider.smoke.ts codex <auth.json> [model]
 //
 // The credential file holds a dedicated credential (`claude setup-token`, or the auth.json of a
-// dedicated CODEX_HOME). It goes to the Worker only, and nothing prints it.
+// dedicated CODEX_HOME). It goes to the Worker only, and nothing prints it. A refreshed auth.json
+// that the agent reports with credential_update is written back to the file.
 import { spawn } from "node:child_process"
 import { createHash } from "node:crypto"
-import { readFile } from "node:fs/promises"
+import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 
 import { FakeControl, type ControlPayload } from "../test/fake-control.ts"
@@ -72,7 +73,15 @@ function start(
   }
 }
 
+function keepCredential(control: FakeControl): void {
+  control.observe = (message) => {
+    if (message.type === "credential_update" && credential.kind === "codex_auth_json")
+      void writeFile(credentialFile as string, message.credential.value, { mode: 0o600 })
+  }
+}
+
 function launch(control: FakeControl, name: string) {
+  keepCredential(control)
   const dir = join(root.path, name)
   const env: NodeJS.ProcessEnv = { ...process.env }
   for (const key of Object.keys(env))

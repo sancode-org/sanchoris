@@ -172,8 +172,7 @@ export class CodexWorker implements Worker {
     const threadParams = {
       cwd: this.context.workspaceDir,
       model: this.context.model,
-      approvalPolicy: "never",
-      sandbox: "danger-full-access",
+      config: { "tools.update_plan.enabled": true },
     }
     const response = (
       resumeSessionId
@@ -193,9 +192,13 @@ export class CodexWorker implements Worker {
       .request("turn/start", {
         threadId: this.threadId,
         input: textInput(text),
+        cwd: this.context.workspaceDir,
+        model: this.context.model,
+        summary: "detailed",
+        approvalsReviewer: "user",
         approvalPolicy: "never",
         sandboxPolicy: { type: "dangerFullAccess" },
-        model: this.context.model,
+        collaborationMode: { mode: "default", settings: { model: this.context.model } },
       })
       .then(
         (result) => this.begin((result as { turn: { id: string } }).turn.id),

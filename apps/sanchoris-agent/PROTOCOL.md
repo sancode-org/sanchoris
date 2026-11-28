@@ -16,13 +16,14 @@ The Thread channel connects one `sanchoris-agent` process in a Workspace to the 
 | `SANCHORIS_GIT_URL_PREFIX` | no (`https://`) | Put before `repo` (`github.com/owner/name`) to clone |
 | `SANCHORIS_CLAUDE_PATH`, `SANCHORIS_CODEX_PATH` | no | The `claude` and `codex` executables |
 
-The Worker and the commands run with the agent's environment without the bootstrap token, plus `PATH` with the `sanchoris-agent` wrapper first, `GH_CONFIG_DIR` and `GIT_CONFIG_GLOBAL` (the GitHub token for `gh` and the credential helper `sanchoris-agent git-credential`), `SANCHORIS_SOCKET`, `SANCHORIS_THREAD_NAME`, and the provider's home variable (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`) with the credential of `start`. `exec` adds `SANCHORIS_SKILL_RUN_ID` and `SANCHORIS_SKILL_DIR`.
+The Worker and the commands run with the agent's environment without the bootstrap token, plus `PATH` with the `sanchoris-agent` wrapper first, `GH_CONFIG_DIR` and `GIT_CONFIG_GLOBAL` (the GitHub token for `gh`, the credential helper `sanchoris-agent git-credential`, and `gitAuthor` of `start` as the git identity), `SANCHORIS_SOCKET`, `SANCHORIS_THREAD_NAME`, and the provider's home variable (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`) with the credential of `start`. `exec` adds `SANCHORIS_SKILL_RUN_ID` and `SANCHORIS_SKILL_DIR`.
 
 ## Transport
 
 - The agent opens the WebSocket with `Authorization: Bearer <token>`: the bootstrap token first, and the thread token of the latest `credentials` on every reconnect. It sends a WebSocket ping every 30 s.
 - The control plane rejects a bad or expired token with HTTP 401, and a spent bootstrap token with 403; the agent exits with code 1. A close code in 4000–4999, or `close`, also ends the agent with code 1. Any other close makes the agent reconnect with backoff (0.5 s doubling to 30 s), unless no `credentials` arrived yet.
 - One text frame is one JSON object with `type` and `threadId`. Unknown fields, unknown types and another `threadId` are protocol errors: the agent exits with code 1.
+- Every message the agent sends fits in one frame of 120 KiB (API Gateway takes messages up to 128 KB): when its JSON is larger, the agent shortens its longest strings and ends them with `…[truncated]` until it fits.
 
 ## Delivery
 
@@ -59,7 +60,7 @@ The Worker and the commands run with the agent's environment without the bootstr
 | `rate_limit` | `status`, `resetsAt`, `windows` | The usage windows as the adapter reads them |
 | `skill_request` | `requestId`, `request` (`run` with `name` and `input`, `continue` with `runId` and `output`, `await` with `runId`, `status` with `runId`) | From `sanchoris-agent skill ...` |
 | `thread_request` | `requestId`, `request` (`start` with `message`, `project`, `model` and the `commits` pushed just before, `send` with `name` and `message`, `stop` and `status` with `name`) | From `sanchoris-agent thread ...` |
-| `exec_result` | `idempotencyKey`, `exitCode`, `stdout`, `stderr` (the last 64 KiB of each), `timedOut` | |
+| `exec_result` | `idempotencyKey`, `exitCode`, `stdout`, `stderr` (the last 48 KiB of each), `timedOut` | |
 | `script_result` | `scriptRunId` (`create:<name>` for `RunOnCreate`), `name`, `exitCode`, `stderrTail` (16 KiB), `timedOut` | |
 | `credential_update` | `credential` | The provider refreshed its credential file (`claude_credentials_json`, `codex_auth_json`); checked after each turn and every minute |
 | `thread_record` | `turn`, `sessionId`, `key`, `sha256`, `bytes` | The provider's state directory, without its credential file and its skills, as a gzipped tar uploaded to `<keyPrefix><turn as 6 digits>.tar.gz` once per turn, at its end. `shutdown` and `stopping` point at the record of the last turn |

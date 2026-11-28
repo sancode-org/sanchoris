@@ -44,4 +44,32 @@ theorem deliver_queue_iff (turn : Turn) (delivery : Delivery) (steerable : Bool)
       turn ≠ .idle ∧ ¬(turn = .running ∧ delivery = .steer ∧ steerable = true) := by
   cases turn <;> cases delivery <;> cases steerable <;> simp [deliver]
 
+/-- What follows the end of a turn: a compaction asked for during the turn (`compact`), a turn with
+the inputs that waited (`turn`), or nothing (`idle`). -/
+inductive Next where
+  | compact
+  | turn
+  | idle
+  deriving DecidableEq, Repr
+
+/-- The step after a turn ends, for an agent that is `stopping`, has a `compact` waiting, and
+holds `queued` inputs. -/
+def afterTurn (stopping compactQueued : Bool) (queued : Nat) : Next :=
+  if stopping then .idle else if compactQueued then .compact else if 0 < queued then .turn else .idle
+
+theorem afterTurn_turn_iff (stopping compactQueued : Bool) (queued : Nat) :
+    afterTurn stopping compactQueued queued = .turn ↔
+      stopping = false ∧ compactQueued = false ∧ 0 < queued := by
+  by_cases h : 0 < queued <;> cases stopping <;> cases compactQueued <;> simp [afterTurn, h]
+
+theorem afterTurn_compact_iff (stopping compactQueued : Bool) (queued : Nat) :
+    afterTurn stopping compactQueued queued = .compact ↔
+      stopping = false ∧ compactQueued = true := by
+  by_cases h : 0 < queued <;> cases stopping <;> cases compactQueued <;> simp [afterTurn, h]
+
+theorem afterTurn_idle_iff (stopping compactQueued : Bool) (queued : Nat) :
+    afterTurn stopping compactQueued queued = .idle ↔
+      stopping = true ∨ (compactQueued = false ∧ queued = 0) := by
+  by_cases h : 0 < queued <;> cases stopping <;> cases compactQueued <;> simp [afterTurn, h] <;> omega
+
 end Sanchoris.AgentInput

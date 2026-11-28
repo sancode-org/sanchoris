@@ -363,6 +363,53 @@ describe("sanchoris-agent against a fake control plane", { timeout: 60_000 }, ()
     expect(await agent.exited).toBe(0)
   })
 
+  test("interrupts a running turn, and compacts after the turn that a compact arrived in", async () => {
+    const { control, agent } = await workspace("w1")
+    control.start = startMessage(control, { instruction: "$ sleep 1\n$ echo after" })
+    await control.next("ready")
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    control.send({ type: "interrupt" })
+    const turn1 = await control.next("turn_end", (message) => message.turn === 1)
+    expect(turn1.result).toBe("interrupted")
+    expect(turn1.summary).not.toContain("after")
+    control.send({
+      type: "input",
+      inputId: "in-1",
+      text: "$ sleep 1\n$ echo second",
+      delivery: "turn",
+    })
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    control.send({ type: "compact" })
+    control.send({ type: "input", inputId: "in-2", text: "after compact", delivery: "turn" })
+    const turn2 = await control.next("turn_end", (message) => message.turn === 2)
+    expect(turn2.summary).toBe("second")
+    const turn3 = await control.next("turn_end", (message) => message.turn === 3)
+    expect(turn3.summary).toBe("compacted")
+    const turn4 = await control.next("turn_end", (message) => message.turn === 4)
+    expect(turn4.summary).toBe("ok: after compact")
+    control.send({ type: "shutdown", reason: "done" })
+    expect(await agent.exited).toBe(0)
+  })
+
+  test("lets the Worker commit as gitAuthor, and fits a large reply into one frame", async () => {
+    const { control, agent } = await workspace("w1")
+    control.start = startMessage(control, {
+      instruction: [
+        "$ cd app && echo mine > mine.txt && git add mine.txt && git commit -qm 'by the worker' && git log -1 --format=%an",
+        "$ head -c 200000 /dev/zero | tr '\\0' x",
+      ].join("\n"),
+    })
+    const turn = await control.next("turn_end")
+    expect(turn.summary.startsWith("sanchoris\nxxx")).toBe(true)
+    expect(turn.summary.endsWith("…[truncated]")).toBe(true)
+    const remote = join(root.path, "remote", "github.com", "acme", "app")
+    expect(git(remote, "log", "-1", "--format=%an <%ae> %s", BRANCH)).toBe(
+      "sanchoris <agent@sanchoris.invalid> by the worker",
+    )
+    control.send({ type: "shutdown", reason: "done" })
+    expect(await agent.exited).toBe(0)
+  })
+
   test("on SIGTERM interrupts the turn, pushes the branch, saves the record and reports stopping", async () => {
     const { control, agent } = await workspace("w1")
     control.start = startMessage(control, {

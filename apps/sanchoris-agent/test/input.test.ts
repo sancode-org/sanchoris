@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test"
 
-import { deliver } from "../src/generated/Sanchoris/AgentInput.ts"
+import { afterTurn, deliver } from "../src/generated/Sanchoris/AgentInput.ts"
 
 describe("deliver (generated from Sanchoris.AgentInput)", () => {
   test("starts a turn when no turn runs, whatever the delivery", () => {
@@ -17,5 +17,14 @@ describe("deliver (generated from Sanchoris.AgentInput)", () => {
   test("keeps a turn input for the next turn while a turn is being prepared or runs", () => {
     expect(deliver("running", "turn", true)).toBe("queue")
     expect(deliver("preparing", "turn", true)).toBe("queue")
+  })
+})
+
+describe("afterTurn (generated from Sanchoris.AgentInput)", () => {
+  test("compacts first, then starts a turn with the waiting inputs, and stays idle when stopping", () => {
+    expect(afterTurn(false, true, 2)).toBe("compact")
+    expect(afterTurn(false, false, 2)).toBe("turn")
+    expect(afterTurn(false, false, 0)).toBe("idle")
+    expect(afterTurn(true, true, 2)).toBe("idle")
   })
 })

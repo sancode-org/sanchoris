@@ -11,12 +11,26 @@ export function sha256(bytes: Buffer): string {
 
 /** The thread record: the provider's state directory as a gzipped tar, without `exclude`. */
 export async function packRecord(home: string, exclude: readonly string[]): Promise<Buffer> {
-  const { stdout } = await execFileAsync(
-    "tar",
-    ["-czf", "-", "-C", home, ...exclude.map((name) => `--exclude=./${name}`), "."],
-    { encoding: "buffer", maxBuffer: 1024 * 1024 * 1024 },
-  )
-  return stdout
+  const args = [
+    "-czf",
+    "-",
+    "--warning=no-file-changed",
+    "-C",
+    home,
+    ...exclude.map((name) => `--exclude=./${name}`),
+    ".",
+  ]
+  try {
+    const { stdout } = await execFileAsync("tar", args, {
+      encoding: "buffer",
+      maxBuffer: 1024 * 1024 * 1024,
+    })
+    return stdout
+  } catch (error) {
+    const failed = error as { code?: unknown; stdout?: Buffer }
+    if (failed.code === 1 && failed.stdout && failed.stdout.length > 0) return failed.stdout
+    throw error
+  }
 }
 
 export async function unpackRecord(home: string, bytes: Buffer): Promise<void> {

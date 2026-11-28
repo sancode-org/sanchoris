@@ -18,11 +18,12 @@ async function git(cwd: string, env: NodeJS.ProcessEnv, args: string[]): Promise
   return stdout.trim()
 }
 
-/** Writes the files through which `git` and `gh` read the GitHub token. */
-export async function writeGitHubToken(options: {
+/** Writes the files through which `git` and `gh` read the GitHub token, and the git identity. */
+export async function writeGitConfig(options: {
   stateDir: string
   helper: string
   token: string
+  author: { name: string; email: string } | null
 }): Promise<void> {
   const ghDir = join(options.stateDir, "gh")
   await mkdir(ghDir, { recursive: true, mode: 0o700 })
@@ -35,12 +36,26 @@ export async function writeGitHubToken(options: {
     { mode: 0o600 },
   )
   const gitconfig = join(options.stateDir, "gitconfig")
+  const quote = (value: string) => `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`
   await writeFile(
-    gitconfig,
-    `[credential "https://github.com"]\n\thelper = \n\thelper = "!${options.helper} git-credential"\n`,
+    `${gitconfig}.tmp`,
+    [
+      ...(options.author
+        ? [
+            "[user]",
+            `\tname = ${quote(options.author.name)}`,
+            `\temail = ${quote(options.author.email)}`,
+          ]
+        : []),
+      '[credential "https://github.com"]',
+      "\thelper = ",
+      `\thelper = ${quote(`!${options.helper} git-credential`)}`,
+      "",
+    ].join("\n"),
     { mode: 0o600 },
   )
-  await chmod(gitconfig, 0o600)
+  await chmod(`${gitconfig}.tmp`, 0o600)
+  await rename(`${gitconfig}.tmp`, gitconfig)
 }
 
 export function gitEnv(stateDir: string): Record<string, string> {

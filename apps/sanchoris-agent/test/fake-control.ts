@@ -30,8 +30,10 @@ export class FakeControl {
   start: ControlPayload | null = null
   /** Replies to `skill_request` and `thread_request`; `null` leaves the request unanswered. */
   answer: (message: Received) => ControlPayload | null = () => null
+  /** Sees every message after `hello`, before `next` does. */
+  observe: (message: Received) => void = () => {}
   private readonly server: Server
-  private readonly wss = new WebSocketServer({ noServer: true })
+  private readonly wss = new WebSocketServer({ noServer: true, maxPayload: 128 * 1024 })
   private socket: WebSocket | null = null
   private bootstrapUsed = false
   private readonly outbox: InboundMessage[] = []
@@ -152,6 +154,7 @@ export class FakeControl {
         this.acked = message.seq
         ws.send(JSON.stringify({ type: "ack", threadId: this.threadId, seq: this.acked }))
       }
+      this.observe(message)
       if (message.type === "skill_request" || message.type === "thread_request") {
         const reply = this.answer(message)
         if (reply) this.send(reply)

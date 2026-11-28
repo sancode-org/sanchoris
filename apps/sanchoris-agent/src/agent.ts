@@ -4,8 +4,8 @@ import { join } from "node:path"
 
 import { type InboundCommand, ThreadChannel } from "./channel.ts"
 import { type CommandResult, runBash, tail } from "./exec.ts"
-import { deliver, type Turn } from "./generated/Sanchoris/AgentInput.ts"
-import { cloneRepos, commitAndPush, gitEnv, writeGitHubToken } from "./git.ts"
+import { afterTurn, deliver, type Turn } from "./generated/Sanchoris/AgentInput.ts"
+import { cloneRepos, commitAndPush, gitEnv, writeGitConfig } from "./git.ts"
 import type { Logger } from "./log.ts"
 import type {
   CredentialsMessage,
@@ -23,7 +23,7 @@ import { installSkills, placeWorkerSkills, validateSkillRun } from "./skills.ts"
 import type { Worker, WorkerProvider, WorkerTurnResult } from "./worker.ts"
 
 const REQUEST_TIMEOUT_MS = 60_000
-const EXEC_OUTPUT_BYTES = 64 * 1024
+const EXEC_OUTPUT_BYTES = 48 * 1024
 const CREDENTIAL_POLL_MS = 60_000
 
 export interface AgentOptions {
@@ -71,6 +71,7 @@ export class Agent {
   private turnNumber = 0
   private turnFinished: Promise<void> = Promise.resolve()
   private savedRecord: { turn: number; key: string } | null = null
+  private gitAuthor: { name: string; email: string } | null = null
   private queued: string[] = []
   private compactQueued = false
   private output = false
@@ -160,12 +161,18 @@ export class Agent {
 
   private async applyCredentials(message: CredentialsMessage): Promise<void> {
     this.credentials = message
-    await writeGitHubToken({
+    await this.writeGitConfig()
+    this.credentialsReady()
+  }
+
+  private async writeGitConfig(): Promise<void> {
+    if (!this.credentials) return
+    await writeGitConfig({
       stateDir: this.options.stateDir,
       helper: join(this.binDir, "sanchoris-agent"),
-      token: message.github.token,
+      token: this.credentials.github.token,
+      author: this.gitAuthor,
     })
-    this.credentialsReady()
   }
 
   private dispatch(message: InboundCommand): void {
@@ -235,6 +242,8 @@ export class Agent {
 
   private async startSession(start: StartMessage): Promise<void> {
     await this.credentialsArrived
+    this.gitAuthor = start.gitAuthor
+    await this.writeGitConfig()
     const provider = await this.options.providers(start.worker.agent)
     const home = join(this.options.stateDir, "home", provider.agent)
     await mkdir(home, { recursive: true, mode: 0o700 })
@@ -336,13 +345,20 @@ export class Agent {
     this.turnNumber += 1
     const turn = this.turnNumber
     const commits = await this.commit(`sanchoris: turn ${turn} of ${session.start.thread.name}`)
-    await this.saveRecord(turn)
+    await this.saveRecord(turn).catch((error: Error) => this.recordFailed(turn, error))
     this.channel.send({ type: "turn_end", turn, ...result, commits })
     await this.checkCredential()
     this.turn = "idle"
-    if (this.stopping) return
-    if (this.compactQueued) this.beginCompact()
-    else if (this.queued.length > 0) this.beginTurn(this.queued.splice(0).join("\n\n"))
+    switch (afterTurn(this.stopping, this.compactQueued, this.queued.length)) {
+      case "compact":
+        this.beginCompact()
+        return
+      case "turn":
+        this.beginTurn(this.queued.splice(0).join("\n\n"))
+        return
+      case "idle":
+        return
+    }
   }
 
   private async commit(message: string): Promise<RepoCommit[]> {
@@ -377,6 +393,12 @@ export class Agent {
     })
     this.savedRecord = { turn, key }
     return key
+  }
+
+  private recordFailed(turn: number, error: Error): null {
+    this.options.logger("error", "thread record was not saved", { turn, error: error.message })
+    this.channel.send({ type: "event", kind: "log", data: { record: turn, error: error.message } })
+    return null
   }
 
   private async checkCredential(): Promise<void> {
@@ -509,7 +531,9 @@ export class Agent {
       await this.waitForIdle()
     }
     const commits = await this.commit(`sanchoris: stop ${session.start.thread.name}`)
-    const recordKey = await this.saveRecord(this.turnNumber)
+    const recordKey = await this.saveRecord(this.turnNumber).catch((error: Error) =>
+      this.recordFailed(this.turnNumber, error),
+    )
     return { commits, recordKey }
   }
 

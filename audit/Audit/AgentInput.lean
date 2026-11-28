@@ -8,4 +8,4 @@ instance : Shrinkable Turn := ⟨fun _ => []⟩
 instance : Arbitrary Delivery := ⟨Gen.elements [.steer, .turn] (by decide)⟩
 instance : Shrinkable Delivery := ⟨fun _ => []⟩
 
-#assay Sanchoris.AgentInput.deliver
+#assay Sanchoris.AgentInput.deliver Sanchoris.AgentInput.afterTurn

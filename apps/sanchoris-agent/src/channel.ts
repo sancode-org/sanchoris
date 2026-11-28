@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 
 import WebSocket from "ws"
 
+import { fitFrame } from "./frame.ts"
 import type { Logger } from "./log.ts"
 import {
   type CredentialsMessage,
@@ -124,11 +125,9 @@ export class ThreadChannel {
   /** Sends a sequenced message; it is sent again after a reconnect until acknowledged. */
   send(payload: SequencedPayload): void {
     this.seq += 1
-    this.unacked.push({
-      ...payload,
-      threadId: this.options.threadId,
-      seq: this.seq,
-    } as SequencedMessage)
+    this.unacked.push(
+      fitFrame({ ...payload, threadId: this.options.threadId, seq: this.seq } as SequencedMessage),
+    )
     this.flush()
   }
 
