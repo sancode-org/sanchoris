@@ -635,6 +635,12 @@ dependencies = [
 [[package]]
 name = "sanchoris-engine"
 version = "0.1.0"
+dependencies = [
+ "leanfran",
+ "sanchoris-config",
+ "serde_json",
+ "thiserror",
+]
 
 [[package]]
 name = "sanchoris-graphql"

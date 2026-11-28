@@ -7,3 +7,9 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+leanfran.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+sanchoris-config = { path = "../config" }

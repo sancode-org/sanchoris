@@ -23,3 +23,10 @@ lang = "typescript"
 lake-dir = "lean"
 out-dir = "apps/sanchoris-agent/src/generated"
 modules = ["Sanchoris.AgentInput"]
+
+[[generate]]
+lang = "rust"
+lake-dir = "lean"
+out-dir = "crates/engine/src/generated"
+path = "crate::generated"
+modules = ["Sanchoris.Engine"]

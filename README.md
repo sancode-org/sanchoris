@@ -19,7 +19,7 @@ nix run github:sancode-org/sanchoris#driver # sanchoris-driver
 | `crates/api` | HTTP API and the `sanchoris` server (axum) |
 | `crates/graphql` | GraphQL schema of the screens |
 | `crates/config` | Reading and validating the configuration repository |
-| `crates/engine` | The `skill.yaml` interpreter |
+| `crates/engine` | The `skill.yaml` interpreter: the transitions of `Sanchoris.Engine` run against a store that writes each transition at once and a Workspace that runs the `Command` States |
 | `crates/core` | Domain types, storage, triggers and thread progress |
 | `crates/worker` | Background jobs |
 | `crates/driver` | `sanchoris-driver`, which runs workspaces on a user's machine |
