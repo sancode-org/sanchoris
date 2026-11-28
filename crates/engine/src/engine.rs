@@ -43,6 +43,8 @@ pub struct StartRequest {
     pub thread: String,
     pub origin: Origin,
     pub definition: Definition,
+    /// The `skill.yaml` of the definition, as JSON.
+    pub source: Value,
     pub input: Value,
 }
 
@@ -147,6 +149,7 @@ impl<S: Store> Engine<S> {
             origin: request.origin,
             parent,
             definition: request.definition,
+            source: request.source,
             run: run.clone(),
             version: 0,
         };

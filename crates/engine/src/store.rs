@@ -63,6 +63,8 @@ pub struct RunRecord {
     pub origin: Origin,
     pub parent: Option<Parent>,
     pub definition: Definition,
+    /// The `skill.yaml` the definition was read from, as JSON.
+    pub source: Value,
     pub run: Run,
     /// Goes up by one with each transaction; a transaction is written only over the version it
     /// read.

@@ -141,7 +141,7 @@ async fn a_skill_the_user_starts_follows_the_same_rule() {
     let mut sim = sim().await;
     sim.start("issue-loop", json!({}));
     step(&mut sim).await;
-    let definition = sim.skills["wait-pr-ci"].clone();
+    let skill = sim.skills["wait-pr-ci"].clone();
     let now = sim.now;
     sim.engine
         .start(
@@ -149,7 +149,8 @@ async fn a_skill_the_user_starts_follows_the_same_rule() {
                 request: "user-1".to_string(),
                 thread: THREAD.to_string(),
                 origin: Origin::User,
-                definition,
+                definition: skill.definition,
+                source: skill.source,
                 input: json!({}),
             },
             now,
@@ -166,7 +167,7 @@ async fn skill_runs_of_other_threads_are_no_parents() {
     let mut sim = sim().await;
     sim.start("issue-loop", json!({}));
     step(&mut sim).await;
-    let definition = sim.skills["wait-pr-ci"].clone();
+    let skill = sim.skills["wait-pr-ci"].clone();
     let now = sim.now;
     sim.engine
         .start(
@@ -174,7 +175,8 @@ async fn skill_runs_of_other_threads_are_no_parents() {
                 request: "other".to_string(),
                 thread: "th_other".to_string(),
                 origin: Origin::Thread,
-                definition,
+                definition: skill.definition,
+                source: skill.source,
                 input: json!({}),
             },
             now,

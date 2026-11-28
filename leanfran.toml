@@ -3,7 +3,7 @@ lang = "rust"
 lake-dir = "lean"
 out-dir = "crates/core/src/generated"
 path = "crate::generated"
-modules = ["Sanchoris.Host"]
+modules = ["Sanchoris.Host", "Sanchoris.Thread"]
 
 [[generate]]
 lang = "typescript"

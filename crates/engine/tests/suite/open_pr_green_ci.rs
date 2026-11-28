@@ -589,29 +589,54 @@ async fn snapshot(sim: &mut Sim) -> (Vec<(String, String)>, Value, Vec<String>, 
 
 /// Stops the store at each of its operations in turn, before the operation and after it, and
 /// goes on from what it holds: the SkillRun, its StateEntries, its notifications and the
-/// commands the Workspace ran end the same as without the stop.
+/// commands the Workspace ran end the same as without the stop. The stopped runs go 8 at a
+/// time, each on its own thread and runtime.
 async fn sweep(plan: Plan) {
     let mut baseline = sim(plan).await;
     baseline.run().await;
     let expected = snapshot(&mut baseline).await;
     let entries = baseline.all_entries().await;
+    let calls = baseline.calls.len();
     let total = baseline.engine.store.ops;
-    for op in 1..=total {
-        for after in [false, true] {
-            let mut s = sim(plan).await;
-            if after {
-                s.engine.store.crash_after.insert(op);
-            } else {
-                s.engine.store.crash_at.insert(op);
-            }
-            s.run().await;
+    let stops: Vec<(usize, bool)> = (1..=total)
+        .flat_map(|op| [(op, false), (op, true)])
+        .collect();
+    for chunk in stops.chunks(8) {
+        let runs: Vec<_> = chunk
+            .iter()
+            .map(|&(op, after)| {
+                std::thread::spawn(move || {
+                    let runtime = tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .expect("a runtime");
+                    runtime.block_on(async move {
+                        let mut s = sim(plan).await;
+                        if after {
+                            s.engine.store.crash_after.insert(op);
+                        } else {
+                            s.engine.store.crash_at.insert(op);
+                        }
+                        s.run().await;
+                        (
+                            s.crashes,
+                            snapshot(&mut s).await,
+                            s.all_entries().await,
+                            s.calls.len(),
+                        )
+                    })
+                })
+            })
+            .collect();
+        for (&(op, after), run) in chunk.iter().zip(runs) {
+            let (crashes, snap, all, n) = run.join().expect("a stopped run");
             let at = format!("a stop at operation {op} (after it: {after})");
             if !after {
-                assert_eq!(s.crashes, 1, "{at}");
+                assert_eq!(crashes, 1, "{at}");
             }
-            assert_eq!(snapshot(&mut s).await, expected, "{at}");
-            assert_eq!(s.all_entries().await, entries, "{at}");
-            assert_eq!(s.calls.len(), baseline.calls.len(), "{at}");
+            assert_eq!(snap, expected, "{at}");
+            assert_eq!(all, entries, "{at}");
+            assert_eq!(n, calls, "{at}");
         }
     }
 }

@@ -1,0 +1,88 @@
+{
+  "plans": [
+    {
+      "id": "pro",
+      "name": "Pro",
+      "priceUsdCents": 2000,
+      "stripePriceEnv": "SANCHORIS_STRIPE_PRICE_PRO",
+      "threadsPerPeriod": 10,
+      "workspaceSecondsPerPeriod": 180000,
+      "maxConcurrency": 2,
+      "workspaceVcpu": 1,
+      "workspaceMemoryMib": 4096,
+      "ephemeralStorageGib": 30,
+      "inboundEventsPerMinute": 60,
+      "threadLimits": {
+        "Turns": 100,
+        "CostUsd": 20,
+        "TimeoutSeconds": 86400,
+        "HeartbeatSeconds": 900
+      },
+      "retentionDays": 90,
+      "auditRetentionDays": 365
+    },
+    {
+      "id": "max",
+      "name": "Max",
+      "priceUsdCents": 10000,
+      "stripePriceEnv": "SANCHORIS_STRIPE_PRICE_MAX",
+      "threadsPerPeriod": 50,
+      "workspaceSecondsPerPeriod": 900000,
+      "maxConcurrency": 5,
+      "workspaceVcpu": 2,
+      "workspaceMemoryMib": 4096,
+      "ephemeralStorageGib": 30,
+      "inboundEventsPerMinute": 120,
+      "threadLimits": {
+        "Turns": 100,
+        "CostUsd": 30,
+        "TimeoutSeconds": 86400,
+        "HeartbeatSeconds": 900
+      },
+      "retentionDays": 90,
+      "auditRetentionDays": 365
+    },
+    {
+      "id": "ultra",
+      "name": "Ultra",
+      "priceUsdCents": 20000,
+      "stripePriceEnv": "SANCHORIS_STRIPE_PRICE_ULTRA",
+      "threadsPerPeriod": 200,
+      "workspaceSecondsPerPeriod": 1800000,
+      "maxConcurrency": 10,
+      "workspaceVcpu": 2,
+      "workspaceMemoryMib": 4096,
+      "ephemeralStorageGib": 30,
+      "inboundEventsPerMinute": 300,
+      "threadLimits": {
+        "Turns": 200,
+        "CostUsd": 50,
+        "TimeoutSeconds": 172800,
+        "HeartbeatSeconds": 900
+      },
+      "retentionDays": 90,
+      "auditRetentionDays": 365
+    },
+    {
+      "id": "admin",
+      "name": "Admin",
+      "priceUsdCents": null,
+      "stripePriceEnv": null,
+      "threadsPerPeriod": null,
+      "workspaceSecondsPerPeriod": null,
+      "maxConcurrency": 10,
+      "workspaceVcpu": 2,
+      "workspaceMemoryMib": 4096,
+      "ephemeralStorageGib": 30,
+      "inboundEventsPerMinute": 300,
+      "threadLimits": {
+        "Turns": 200,
+        "CostUsd": 50,
+        "TimeoutSeconds": 172800,
+        "HeartbeatSeconds": 900
+      },
+      "retentionDays": 90,
+      "auditRetentionDays": 365
+    }
+  ]
+}

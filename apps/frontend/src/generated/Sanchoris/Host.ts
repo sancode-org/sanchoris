@@ -2,6 +2,163 @@
 import * as L from "leanfran/runtime"
 import type { Obj } from "leanfran/runtime"
 
+function l_List_find_x63___at__Sanchoris_Host_place_spec_0__tc(x_1: Obj, x_2: Obj): Obj | L.Bounce {
+  for (;;) {
+    switch (L.lean_tag(x_2)) {
+      case 0: {
+        const x_3: Obj = 0
+        return x_3
+      }
+      case 1: {
+        const x_4: Obj = L.lean_ctor_get(x_2, 0)
+        const x_5: Obj = L.lean_ctor_get(x_2, 1)
+        const x_6: Obj = L.lean_ctor_get(x_4, 0)
+        const x_7: number = L.lean_string_dec_eq(x_6, x_1)
+        switch (x_7) {
+          case 0: {
+            const t_1: Obj = x_1
+            const t_2: Obj = x_5
+            x_1 = t_1
+            x_2 = t_2
+            continue
+          }
+          case 1: {
+            L.lean_inc(x_4)
+            const x_9: Obj = L.lean_ctor(1, 1, 0, 0, x_4)
+            return x_9
+          }
+          default: {
+            throw new Error("no matching case")
+          }
+        }
+      }
+      default: {
+        throw new Error("no matching case")
+      }
+    }
+  }
+}
+
+function l_List_find_x63___at__Sanchoris_Host_place_spec_0(x_1: Obj, x_2: Obj): Obj {
+  return L.lean_trampoline(l_List_find_x63___at__Sanchoris_Host_place_spec_0__tc(x_1, x_2))
+}
+
+function l_Sanchoris_Host_place(x_1: Obj, x_2: Obj): Obj {
+  switch (L.lean_tag(x_1)) {
+    case 0: {
+      const x_3: Obj = 0
+      return x_3
+    }
+    case 1: {
+      const x_4: Obj = L.lean_ctor_get(x_1, 0)
+      const x_5: Obj = l_List_find_x63___at__Sanchoris_Host_place_spec_0(x_4, x_2)
+      switch (L.lean_tag(x_5)) {
+        case 0: {
+          const x_6: Obj = 3
+          return x_6
+        }
+        case 1: {
+          const x_7: Obj = L.lean_ctor_get(x_5, 0)
+          const x_19: number = L.lean_is_shared(x_5)
+          switch (x_19) {
+            case 0: {
+              const x_9: Obj = x_5
+              const x_10: number = x_19
+              const x_11: number = L.lean_ctor_get_u8(x_7, 0)
+              const x_12: Obj = L.lean_ctor_get(x_7, 1)
+              L.lean_inc(x_12)
+              const x_13: Obj = L.lean_ctor_get(x_7, 2)
+              L.lean_inc(x_13)
+              L.lean_dec(x_7)
+              const x_14: number = l_Sanchoris_Host_canStartWorkspace(x_11, x_12, x_13)
+              L.lean_dec(x_13)
+              L.lean_dec(x_12)
+              switch (x_14) {
+                case 0: {
+                  const x_15: Obj = 2
+                  return x_15
+                }
+                case 1: {
+                  L.lean_inc(x_4)
+                  switch (x_10) {
+                    case 0: {
+                      L.lean_ctor_set(x_9, 0, x_4)
+                      const x_17: Obj = x_9
+                      return x_17
+                    }
+                    case 1: {
+                      const x_18: Obj = L.lean_ctor(1, 1, 0, 0, x_4)
+                      const x_17: Obj = x_18
+                      return x_17
+                    }
+                    default: {
+                      throw new Error("no matching case")
+                    }
+                  }
+                }
+                default: {
+                  throw new Error("no matching case")
+                }
+              }
+            }
+            case 1: {
+              L.lean_inc(x_7)
+              L.lean_dec(x_5)
+              const x_9: Obj = undefined
+              const x_10: number = x_19
+              const x_11: number = L.lean_ctor_get_u8(x_7, 0)
+              const x_12: Obj = L.lean_ctor_get(x_7, 1)
+              L.lean_inc(x_12)
+              const x_13: Obj = L.lean_ctor_get(x_7, 2)
+              L.lean_inc(x_13)
+              L.lean_dec(x_7)
+              const x_14: number = l_Sanchoris_Host_canStartWorkspace(x_11, x_12, x_13)
+              L.lean_dec(x_13)
+              L.lean_dec(x_12)
+              switch (x_14) {
+                case 0: {
+                  const x_15: Obj = 2
+                  return x_15
+                }
+                case 1: {
+                  L.lean_inc(x_4)
+                  switch (x_10) {
+                    case 0: {
+                      L.lean_ctor_set(x_9, 0, x_4)
+                      const x_17: Obj = x_9
+                      return x_17
+                    }
+                    case 1: {
+                      const x_18: Obj = L.lean_ctor(1, 1, 0, 0, x_4)
+                      const x_17: Obj = x_18
+                      return x_17
+                    }
+                    default: {
+                      throw new Error("no matching case")
+                    }
+                  }
+                }
+                default: {
+                  throw new Error("no matching case")
+                }
+              }
+            }
+            default: {
+              throw new Error("no matching case")
+            }
+          }
+        }
+        default: {
+          throw new Error("no matching case")
+        }
+      }
+    }
+    default: {
+      throw new Error("no matching case")
+    }
+  }
+}
+
 function l_Sanchoris_Host_canStartWorkspace(x_1: number, x_2: Obj, x_3: Obj): number {
   switch (x_1) {
     case 0: {
@@ -18,12 +175,38 @@ function l_Sanchoris_Host_canStartWorkspace(x_1: number, x_2: Obj, x_3: Obj): nu
 }
 
 
-const $d0: L.TypeDesc<boolean> = L.boolDesc
-const $d1: L.TypeDesc<bigint> = L.natDesc
+/** Lean `Sanchoris.Host.Placement`. */
+export type Placement = { readonly ctor: "cloud" } | { readonly ctor: "host"; readonly name: string } | { readonly ctor: "full" } | { readonly ctor: "missing" }
+/** The JSON form of Lean `Sanchoris.Host.Placement`. */
+export type PlacementInput = "cloud" | { readonly host: { readonly name: string } } | "full" | "missing"
+
+/** Lean `Sanchoris.Host.HostState`. */
+export type HostState = { readonly name: string; readonly online: boolean; readonly running: bigint; readonly maxWorkspaces: bigint }
+/** The JSON form of Lean `Sanchoris.Host.HostState`. */
+export type HostStateInput = { readonly name: string; readonly online: boolean; readonly running: bigint | number | string; readonly maxWorkspaces: bigint | number | string }
+
+
+const $tPlacement: L.TypeDesc<Placement> = L.typeDesc({ kind: "inductive", name: "Placement", tagKey: "ctor", variants: [{ name: "cloud", cidx: 0, size: 0, usize: 0, ssize: 0, positional: false, fields: [], invariants: [] }, { name: "host", cidx: 1, size: 1, usize: 0, ssize: 0, positional: false, fields: [{ key: "name", desc: L.stringDesc, slot: "obj", at: 0, omitNone: false, flat: false, bounds: {} }], invariants: [] }, { name: "full", cidx: 2, size: 0, usize: 0, ssize: 0, positional: false, fields: [], invariants: [] }, { name: "missing", cidx: 3, size: 0, usize: 0, ssize: 0, positional: false, fields: [], invariants: [] }] })
+const $tHostState: L.TypeDesc<HostState> = L.typeDesc({ kind: "struct", name: "HostState", trivial: null, variant: { name: "mk", cidx: 0, size: 3, usize: 0, ssize: 1, positional: false, fields: [{ key: "name", desc: L.stringDesc, slot: "obj", at: 0, omitNone: false, flat: false, bounds: {} }, { key: "online", desc: L.boolDesc, slot: "u8", at: 0, omitNone: false, flat: false, bounds: {} }, { key: "running", desc: L.natDesc, slot: "obj", at: 1, omitNone: false, flat: false, bounds: {} }, { key: "maxWorkspaces", desc: L.natDesc, slot: "obj", at: 2, omitNone: false, flat: false, bounds: {} }], invariants: [] } })
+
+export const Placement: L.LeanSchema<PlacementInput, Placement> = L.schema<PlacementInput, Placement>($tPlacement)
+export const HostState: L.LeanSchema<HostStateInput, HostState> = L.schema<HostStateInput, HostState>($tHostState)
+
+const $d0: L.TypeDesc<string | null> = L.optionDesc(L.stringDesc, "null")
+const $d1: L.TypeDesc<HostState[]> = L.listDesc($tHostState)
+const $d2: L.TypeDesc<Placement> = $tPlacement
+const $d3: L.TypeDesc<boolean> = L.boolDesc
+const $d4: L.TypeDesc<bigint> = L.natDesc
+
+/** Lean `Sanchoris.Host.place : Option String → List Sanchoris.Host.HostState → Sanchoris.Host.Placement`. */
+export function place(target: string | null, hosts: readonly HostState[]): Placement {
+  return L.toTs($d2, l_Sanchoris_Host_place(L.toLean($d0, target, "target"), L.toLean($d1, hosts, "hosts")))
+}
+L.leanName(place, "Sanchoris.Host.place")
 
 /** Lean `Sanchoris.Host.canStartWorkspace : Bool → Nat → Nat → Bool`. */
 export function canStartWorkspace(online: boolean, running: bigint | number, maxWorkspaces: bigint | number): boolean {
-  return L.toTs($d0, l_Sanchoris_Host_canStartWorkspace(L.lean_unbox(L.toLean($d0, online, "online")), L.toLean($d1, running, "running"), L.toLean($d1, maxWorkspaces, "maxWorkspaces")))
+  return L.toTs($d3, l_Sanchoris_Host_canStartWorkspace(L.lean_unbox(L.toLean($d3, online, "online")), L.toLean($d4, running, "running"), L.toLean($d4, maxWorkspaces, "maxWorkspaces")))
 }
 L.leanName(canStartWorkspace, "Sanchoris.Host.canStartWorkspace")
 

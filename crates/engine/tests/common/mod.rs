@@ -29,7 +29,14 @@ fn outside() -> Outside {
 
 /// The definitions of the skills of a configuration with the skills `extra` (name and
 /// `skill.yaml`) and the built-in ones, after validation.
-pub fn skills(extra: &[(&str, &str)]) -> BTreeMap<String, Definition> {
+/// A skill of a configuration: its definition and the `skill.yaml` it was read from.
+#[derive(Debug, Clone)]
+pub struct SkillSource {
+    pub definition: Definition,
+    pub source: Value,
+}
+
+pub fn skills(extra: &[(&str, &str)]) -> BTreeMap<String, SkillSource> {
     let mut files = BTreeMap::from([("sanchoris.yaml".to_string(), CONFIG.to_string())]);
     for (name, yaml) in extra {
         files.insert(
@@ -48,14 +55,17 @@ pub fn skills(extra: &[(&str, &str)]) -> BTreeMap<String, Definition> {
             let d = skill.definition.as_ref()?;
             Some((
                 name.clone(),
-                definition(name, &d.source).expect("a definition"),
+                SkillSource {
+                    definition: definition(name, &d.source).expect("a definition"),
+                    source: d.source.clone(),
+                },
             ))
         })
         .collect()
 }
 
 pub fn open_pr_green_ci() -> Definition {
-    skills(&[])["open-pr-green-ci"].clone()
+    skills(&[])["open-pr-green-ci"].definition.clone()
 }
 
 /// A store that fails at the operations whose numbers (from 1) are in `crash_at`, before doing
@@ -266,7 +276,7 @@ impl Workspace for Recorder {
 pub struct Sim {
     pub engine: Engine<FaultStore<TestStore>>,
     pub now: u64,
-    pub skills: BTreeMap<String, Definition>,
+    pub skills: BTreeMap<String, SkillSource>,
     script: Script,
     agent: Agent,
     deliveries: Vec<(u64, u64, Delivery)>,
@@ -289,7 +299,7 @@ pub struct Sim {
 }
 
 impl Sim {
-    pub async fn new(skills: BTreeMap<String, Definition>, script: Script, agent: Agent) -> Sim {
+    pub async fn new(skills: BTreeMap<String, SkillSource>, script: Script, agent: Agent) -> Sim {
         Sim {
             engine: Engine::new(FaultStore::new(crate::backend::store().await)),
             now: 1_795_858_200_000,
@@ -421,7 +431,8 @@ impl Sim {
                     request: request.clone(),
                     thread: THREAD.to_string(),
                     origin: Origin::Thread,
-                    definition: self.skills[skill].clone(),
+                    definition: self.skills[skill].definition.clone(),
+                    source: self.skills[skill].source.clone(),
                     input: input.clone(),
                 };
                 let r = self.engine.start(start, now).await;

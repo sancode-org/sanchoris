@@ -5,6 +5,147 @@ use ::leanfran::runtime as rt;
 use rt::Obj;
 
 #[allow(dead_code, non_snake_case, unused_mut, unused_assignments, unused_variables, unreachable_code, unused_unsafe, clippy::all)]
+pub(crate) unsafe fn l_Sanchoris_Host_place(mut x_1: Obj, mut x_2: Obj) -> Obj {
+let mut x_3: Obj = rt::lean_box(0);
+let mut x_4: Obj = rt::lean_box(0);
+let mut x_5: Obj = rt::lean_box(0);
+let mut x_6: Obj = rt::lean_box(0);
+let mut x_7: Obj = rt::lean_box(0);
+let mut x_9: Obj = rt::lean_box(0);
+let mut x_10: u8 = 0;
+let mut x_11: u8 = 0;
+let mut x_12: Obj = rt::lean_box(0);
+let mut x_13: Obj = rt::lean_box(0);
+let mut x_14: u8 = 0;
+let mut x_15: Obj = rt::lean_box(0);
+let mut x_17: Obj = rt::lean_box(0);
+let mut x_18: Obj = rt::lean_box(0);
+let mut x_19: u8 = 0;
+let mut __blk: u32 = 0;
+'body: loop { match __blk {
+0 => {
+match rt::lean_obj_tag(x_1) {
+0 => {
+x_3 = rt::lean_box(0);
+return x_3;
+}
+1 => {
+x_4 = rt::lean_ctor_get(x_1, 0);
+x_5 = l_List_find_x3f___at___00Sanchoris_Host_place_spec__0(x_4, x_2);
+match rt::lean_obj_tag(x_5) {
+0 => {
+x_6 = rt::lean_box(3);
+return x_6;
+}
+1 => {
+x_7 = rt::lean_ctor_get(x_5, 0);
+x_19 = (!rt::lean_is_exclusive(x_5)) as u8;
+match x_19 as u32 {
+0 => {
+{ let t_0 = x_5; let t_1 = x_19; x_9 = t_0; x_10 = t_1; }
+__blk = 1; continue 'body;
+}
+1 => {
+rt::lean_inc(x_7);
+rt::lean_dec(x_5);
+{ let t_0 = rt::lean_box(0); let t_1 = x_19; x_9 = t_0; x_10 = t_1; }
+__blk = 1; continue 'body;
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+1 => {
+x_11 = rt::lean_ctor_get_uint8(x_7, 3 * core::mem::size_of::<usize>() as u32 + 0);
+x_12 = rt::lean_ctor_get(x_7, 1);
+rt::lean_inc(x_12);
+x_13 = rt::lean_ctor_get(x_7, 2);
+rt::lean_inc(x_13);
+rt::lean_dec(x_7);
+x_14 = l_Sanchoris_Host_canStartWorkspace(x_11, x_12, x_13);
+rt::lean_dec(x_13);
+rt::lean_dec(x_12);
+match x_14 as u32 {
+0 => {
+rt::lean_del_object(x_9);
+x_15 = rt::lean_box(2);
+return x_15;
+}
+1 => {
+rt::lean_inc(x_4);
+match x_10 as u32 {
+0 => {
+rt::lean_ctor_set(x_9, 0, x_4);
+{ let t_0 = x_9; x_17 = t_0; }
+__blk = 2; continue 'body;
+}
+1 => {
+x_18 = rt::lean_alloc_ctor(1, 1, 0 * core::mem::size_of::<usize>() as u32 + 0); rt::lean_ctor_set(x_18, 0, x_4);
+{ let t_0 = x_18; x_17 = t_0; }
+__blk = 2; continue 'body;
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+2 => {
+return x_17;
+}
+_ => rt::lean_internal_panic_unreachable(),
+} }
+}
+
+#[allow(dead_code, non_snake_case, unused_mut, unused_assignments, unused_variables, unreachable_code, unused_unsafe, clippy::all)]
+pub(crate) unsafe fn l_List_find_x3f___at___00Sanchoris_Host_place_spec__0(mut x_1: Obj, mut x_2: Obj) -> Obj {
+let mut x_3: Obj = rt::lean_box(0);
+let mut x_4: Obj = rt::lean_box(0);
+let mut x_5: Obj = rt::lean_box(0);
+let mut x_6: Obj = rt::lean_box(0);
+let mut x_7: u8 = 0;
+let mut x_8: Obj = rt::lean_box(0);
+let mut x_9: Obj = rt::lean_box(0);
+let mut __blk: u32 = 0;
+'body: loop { match __blk {
+0 => {
+match rt::lean_obj_tag(x_2) {
+0 => {
+x_3 = rt::lean_box(0);
+return x_3;
+}
+1 => {
+x_4 = rt::lean_ctor_get(x_2, 0);
+x_5 = rt::lean_ctor_get(x_2, 1);
+x_6 = rt::lean_ctor_get(x_4, 0);
+x_7 = rt::lean_string_dec_eq(x_6, x_1);
+match x_7 as u32 {
+0 => {
+{ let t_0 = x_1; let t_1 = x_5; x_1 = t_0; x_2 = t_1; }
+__blk = 0; continue 'body;
+}
+1 => {
+rt::lean_inc(x_4);
+x_9 = rt::lean_alloc_ctor(1, 1, 0 * core::mem::size_of::<usize>() as u32 + 0); rt::lean_ctor_set(x_9, 0, x_4);
+return x_9;
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+_ => rt::lean_internal_panic_unreachable(),
+} }
+}
+
+
+#[allow(dead_code, non_snake_case, unused_mut, unused_assignments, unused_variables, unreachable_code, unused_unsafe, clippy::all)]
 pub(crate) unsafe fn l_Sanchoris_Host_canStartWorkspace(mut x_1: u8, mut x_2: Obj, mut x_3: Obj) -> u8 {
 let mut x_4: u8 = 0;
 match x_1 as u32 {
@@ -20,6 +161,91 @@ _ => rt::lean_internal_panic_unreachable(),
 }
 
 
+
+#[doc = "Lean type `Sanchoris.Host.Placement` (module `Sanchoris.Host`)."]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Placement {
+    Cloud,
+    Host{ name: String },
+    Full,
+    Missing,
+}
+impl rt::ToLean for Placement {
+    unsafe fn to_lean(self) -> Obj {
+        match self {
+            Placement::Cloud => rt::lean_box(0),
+            Placement::Host { name: f0 } => { let o = rt::lean_alloc_ctor(1, 1, 0 * core::mem::size_of::<usize>() as u32 + 0); rt::lean_ctor_set(o, 0, rt::ToLean::to_lean(f0)); o },
+            Placement::Full => rt::lean_box(2),
+            Placement::Missing => rt::lean_box(3),
+        }
+    }
+}
+impl rt::FromLean for Placement {
+    unsafe fn from_lean(o: Obj) -> Self {
+        match rt::lean_obj_tag(o) {
+            0 => Placement::Cloud,
+            1 => Placement::Host { name: <String as rt::FromLean>::from_lean(rt::lean_ctor_get(o, 0)) },
+            2 => Placement::Full,
+            3 => Placement::Missing,
+            _ => unreachable!(),
+        }
+    }
+}
+unsafe impl rt::LeanRepr for Placement {
+    type Value = Placement;
+    unsafe fn to_obj(value: Placement) -> Obj {
+        rt::ToLean::to_lean(value)
+    }
+    unsafe fn from_obj(o: Obj) -> Placement {
+        <Placement as rt::FromLean>::from_lean(o)
+    }
+}
+unsafe impl rt::IntoLean<Placement> for Placement {
+    unsafe fn into_obj(self) -> Obj {
+        rt::ToLean::to_lean(self)
+    }
+}
+
+#[doc = "Lean type `Sanchoris.Host.HostState` (module `Sanchoris.Host`)."]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct HostState { pub name: String, pub online: bool, pub running: rt::Nat, pub max_workspaces: rt::Nat }
+impl rt::ToLean for HostState {
+    unsafe fn to_lean(self) -> Obj {
+        let HostState { name: f0, online: f1, running: f2, max_workspaces: f3 } = self; { let o = rt::lean_alloc_ctor(0, 3, 0 * core::mem::size_of::<usize>() as u32 + 1); rt::lean_ctor_set(o, 0, rt::ToLean::to_lean(f0)); rt::lean_ctor_set_uint8(o, 3 * core::mem::size_of::<usize>() as u32 + 0, (f1) as u8); rt::lean_ctor_set(o, 1, rt::ToLean::to_lean(f2)); rt::lean_ctor_set(o, 2, rt::ToLean::to_lean(f3)); o }
+    }
+}
+impl rt::FromLean for HostState {
+    unsafe fn from_lean(o: Obj) -> Self {
+        HostState { name: <String as rt::FromLean>::from_lean(rt::lean_ctor_get(o, 0)), online: (rt::lean_ctor_get_uint8(o, 3 * core::mem::size_of::<usize>() as u32 + 0)) != 0, running: <rt::Nat as rt::FromLean>::from_lean(rt::lean_ctor_get(o, 1)), max_workspaces: <rt::Nat as rt::FromLean>::from_lean(rt::lean_ctor_get(o, 2)) }
+    }
+}
+unsafe impl rt::LeanRepr for HostState {
+    type Value = HostState;
+    unsafe fn to_obj(value: HostState) -> Obj {
+        rt::ToLean::to_lean(value)
+    }
+    unsafe fn from_obj(o: Obj) -> HostState {
+        <HostState as rt::FromLean>::from_lean(o)
+    }
+}
+unsafe impl rt::IntoLean<HostState> for HostState {
+    unsafe fn into_obj(self) -> Obj {
+        rt::ToLean::to_lean(self)
+    }
+}
+
+#[doc = "Lean: `Sanchoris.Host.place : Option String → List Sanchoris.Host.HostState → Sanchoris.Host.Placement` (module `Sanchoris.Host`)."]
+#[::leanfran::exported("Sanchoris.Host.place")]
+pub fn place(target: Option<String>, hosts: Vec<HostState>) -> Placement {
+    unsafe {
+        let __a0: Obj = rt::option_to_lean(target, |v0| rt::ToLean::to_lean(v0));
+        let __a1: Obj = rt::list_to_lean(hosts, |v0| rt::ToLean::to_lean(v0));
+        let __r: Obj = l_Sanchoris_Host_place(__a0, __a1);
+        rt::lean_dec(__a0); rt::lean_dec(__a1); let __v = <Placement as rt::FromLean>::from_lean(__r);
+        rt::lean_dec(__r);
+        __v
+    }
+}
 
 #[doc = "Lean: `Sanchoris.Host.canStartWorkspace : Bool → Nat → Nat → Bool` (module `Sanchoris.Host`)."]
 #[::leanfran::exported("Sanchoris.Host.canStartWorkspace")]
@@ -37,6 +263,15 @@ pub fn can_start_workspace(online: bool, running: rt::Nat, max_workspaces: rt::N
 #[allow(unused_imports, clippy::all)]
 pub mod lean {
     use super::*;
+    #[doc = "`place` on handles. Lean: `Sanchoris.Host.place : Option String → List Sanchoris.Host.HostState → Sanchoris.Host.Placement` (module `Sanchoris.Host`)."]
+    pub fn place(target: impl rt::IntoLean<Option<String>>, hosts: impl rt::IntoLean<rt::List<HostState>>) -> rt::Lean<Placement> {
+        unsafe {
+            let __a0: Obj = rt::IntoLean::<Option<String>>::into_obj(target);
+            let __a1: Obj = rt::IntoLean::<rt::List<HostState>>::into_obj(hosts);
+            let __r: Obj = l_Sanchoris_Host_place(__a0, __a1);
+            rt::lean_dec(__a0); rt::lean_dec(__a1); rt::Lean::from_owned(__r)
+        }
+    }
     #[doc = "`can_start_workspace` on handles. Lean: `Sanchoris.Host.canStartWorkspace : Bool → Nat → Nat → Bool` (module `Sanchoris.Host`)."]
     pub fn can_start_workspace(online: impl rt::IntoLean<bool>, running: impl rt::IntoLean<rt::Nat>, max_workspaces: impl rt::IntoLean<rt::Nat>) -> rt::Lean<bool> {
         unsafe {
@@ -53,6 +288,15 @@ pub mod lean {
 #[allow(unused_imports, clippy::all)]
 pub mod local {
     use super::*;
+    #[doc = "`place` on handles. Lean: `Sanchoris.Host.place : Option String → List Sanchoris.Host.HostState → Sanchoris.Host.Placement` (module `Sanchoris.Host`)."]
+    pub fn place(target: impl rt::IntoLean<Option<String>>, hosts: impl rt::IntoLean<rt::List<HostState>>) -> rt::Local<Placement> {
+        unsafe {
+            let __a0: Obj = rt::IntoLean::<Option<String>>::into_obj(target);
+            let __a1: Obj = rt::IntoLean::<rt::List<HostState>>::into_obj(hosts);
+            let __r: Obj = l_Sanchoris_Host_place(__a0, __a1);
+            rt::lean_dec(__a0); rt::lean_dec(__a1); rt::Local::from_owned(__r)
+        }
+    }
     #[doc = "`can_start_workspace` on handles. Lean: `Sanchoris.Host.canStartWorkspace : Bool → Nat → Nat → Bool` (module `Sanchoris.Host`)."]
     pub fn can_start_workspace(online: impl rt::IntoLean<bool>, running: impl rt::IntoLean<rt::Nat>, max_workspaces: impl rt::IntoLean<rt::Nat>) -> rt::Local<bool> {
         unsafe {
