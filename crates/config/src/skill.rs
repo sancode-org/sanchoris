@@ -3,7 +3,7 @@ use serde_yaml_ng::{Mapping, Value};
 
 use crate::generated::sanchoris_skill_definition as lean;
 use crate::issue::{Check, index, join};
-use crate::reader::{Reader, to_json};
+use crate::reader::Reader;
 
 /// The type of an item of `Inputs`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -117,7 +117,7 @@ pub(crate) fn read(r: &mut Reader, text: &str) -> Option<SkillDefinition> {
     }
     Some(SkillDefinition {
         inputs,
-        source: to_json(&value),
+        source: r.json(&value, "")?,
     })
 }
 

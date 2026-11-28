@@ -393,4 +393,198 @@ theorem noTerminal_mem_validate (d : Definition) :
   apply Bool.eq_iff_iff.mpr
   simpa [List.all_eq_true] using this
 
+private theorem mem_missingOf {p : Place} {keys : List String} {r : List (List String)} {i : Issue}
+    (h : i ∈ missingOf p keys r) : ∃ fs, i = .missingField p fs := by
+  simp only [missingOf, List.mem_filterMap] at h
+  obtain ⟨fs, _, h⟩ := h
+  split at h
+  · cases h
+  · exact ⟨fs, (Option.some.inj h).symm⟩
+
+private theorem mem_flatMap_missingOf {l : List (Rule × Nat)} {f : Rule × Nat → Place}
+    {req : List (List String)} {i : Issue}
+    (h : i ∈ l.flatMap fun x => missingOf (f x) x.1.keys req) :
+    ∃ p fs, i = .missingField p fs := by
+  simp only [List.mem_flatMap] at h
+  obtain ⟨x, _, h⟩ := h
+  obtain ⟨fs, rfl⟩ := mem_missingOf h
+  exact ⟨_, fs, rfl⟩
+
+private theorem mem_missingFields {d : Definition} {i : Issue} (h : i ∈ missingFields d) :
+    ∃ p fs, i = .missingField p fs := by
+  simp only [missingFields, List.mem_append, List.mem_flatMap] at h
+  rcases h with h | ⟨s, _, h⟩
+  · obtain ⟨fs, rfl⟩ := mem_missingOf h
+    exact ⟨_, fs, rfl⟩
+  · simp only [stateMissing, List.mem_flatten, List.mem_cons, List.not_mem_nil, or_false] at h
+    obtain ⟨l, hl, hm⟩ := h
+    rcases hl with rfl | rfl | rfl | rfl | rfl
+    · obtain ⟨fs, rfl⟩ := mem_missingOf hm
+      exact ⟨_, fs, rfl⟩
+    · split at hm
+      · rcases List.mem_append.mp hm with hm | hm
+        · obtain ⟨fs, rfl⟩ := mem_missingOf hm
+          exact ⟨_, fs, rfl⟩
+        · split at hm
+          · exact ⟨_, _, List.mem_singleton.mp hm⟩
+          · cases hm
+      · cases hm
+    · exact mem_flatMap_missingOf hm
+    · exact mem_flatMap_missingOf hm
+    · exact mem_flatMap_missingOf hm
+
+private theorem mem_unknownStates {d : Definition} {i : Issue} (h : i ∈ unknownStates d) :
+    ∃ p f t, i = .unknownState p f t ∧ (names d).contains t = false := by
+  simp only [unknownStates, List.mem_append, List.mem_filterMap, List.mem_flatMap] at h
+  rcases h with ⟨t, _, h⟩ | ⟨s, _, ⟨p, f, t⟩, _, h⟩
+  · by_cases hc : (names d).contains t = true
+    · simp_all
+    · have hc' : (names d).contains t = false := by simpa using hc
+      simp only [hc', Bool.false_eq_true, ite_false, Option.some.injEq] at h
+      exact ⟨_, _, t, h.symm, hc'⟩
+  · by_cases hc : (names d).contains t = true
+    · simp_all
+    · have hc' : (names d).contains t = false := by simpa using hc
+      simp only [hc', Bool.false_eq_true, ite_false, Option.some.injEq] at h
+      exact ⟨p, f, t, h.symm, hc'⟩
+
+private theorem mem_misplacedStatesAll {d : Definition} {i : Issue} (h : i ∈ misplacedStatesAll d) :
+    ∃ p, i = .misplacedStatesAll p := by
+  simp only [misplacedStatesAll, List.mem_flatMap, List.mem_append] at h
+  obtain ⟨s, _, h | h⟩ := h <;>
+  · simp only [misplacedOf, List.mem_filterMap] at h
+    obtain ⟨_, _, h⟩ := h
+    split at h
+    · exact ⟨_, (Option.some.inj h).symm⟩
+    · cases h
+
+private theorem mem_unreachableStates {d : Definition} {n : String} :
+    Issue.unreachable n ∈ unreachableStates d ↔ ∃ s ∈ d.states, s.name = n ∧ ¬ Reachable d n := by
+  simp only [unreachableStates, List.mem_filterMap]
+  constructor
+  · rintro ⟨s, hs, h⟩
+    cases hr : (reachableNames d).contains s.name
+    · simp only [hr, Bool.false_eq_true, ite_false, Option.some.injEq,
+        Issue.unreachable.injEq] at h
+      subst h
+      refine ⟨s, hs, rfl, fun hreach => ?_⟩
+      exact absurd ((mem_reachableNames_iff d s.name).mpr hreach) (contains_false.mp hr)
+    · simp only [hr, ite_true, reduceCtorEq] at h
+  · rintro ⟨s, hs, rfl, hn⟩
+    refine ⟨s, hs, ?_⟩
+    have : (reachableNames d).contains s.name = false := by
+      cases hc : (reachableNames d).contains s.name
+      · rfl
+      · exact absurd ((mem_reachableNames_iff d s.name).mp (contains_true.mp hc)) hn
+    simp only [this, Bool.false_eq_true, ite_false]
+
+private theorem mem_validate {d : Definition} {i : Issue} :
+    i ∈ validate d ↔ i ∈ missingFields d ∨ i ∈ unknownStates d ∨ i ∈ unreachableStates d ∨
+      (i = .noTerminal ∧ d.states.any isTerminal = false) ∨ i ∈ misplacedStatesAll d := by
+  simp only [validate, List.mem_flatten, List.mem_cons, List.not_mem_nil, or_false]
+  constructor
+  · rintro ⟨l, hl, hm⟩
+    rcases hl with rfl | rfl | rfl | rfl | rfl
+    · exact .inl hm
+    · exact .inr (.inl hm)
+    · exact .inr (.inr (.inl hm))
+    · cases ht : d.states.any isTerminal
+      · simp only [ht, Bool.false_eq_true, ite_false, List.mem_singleton] at hm
+        exact .inr (.inr (.inr (.inl ⟨hm, rfl⟩)))
+      · simp [ht] at hm
+    · exact .inr (.inr (.inr (.inr hm)))
+  · rintro (h | h | h | ⟨rfl, ht⟩ | h)
+    · exact ⟨_, .inl rfl, h⟩
+    · exact ⟨_, .inr (.inl rfl), h⟩
+    · exact ⟨_, .inr (.inr (.inl rfl)), h⟩
+    · exact ⟨_, .inr (.inr (.inr (.inl rfl))), by simp [ht]⟩
+    · exact ⟨_, .inr (.inr (.inr (.inr rfl))), h⟩
+
+private theorem mem_validate_unreachable (d : Definition) (n : String) :
+    Issue.unreachable n ∈ validate d ↔ ∃ s ∈ d.states, s.name = n ∧ ¬ Reachable d n := by
+  rw [mem_validate, ← mem_unreachableStates]
+  constructor
+  · rintro (h | h | h | ⟨h, _⟩ | h)
+    · obtain ⟨_, _, h⟩ := mem_missingFields h; cases h
+    · obtain ⟨_, _, _, h, _⟩ := mem_unknownStates h; cases h
+    · exact h
+    · cases h
+    · obtain ⟨_, h⟩ := mem_misplacedStatesAll h; cases h
+  · exact fun h => .inr (.inr (.inl h))
+
+/-- `validate` reports a State as unreachable exactly when `StartAt` does not reach it. -/
+theorem unreachable_mem_validate (d : Definition) :
+    d.states.all (fun s =>
+      (validate d).contains (.unreachable s.name) = !decide (Reachable d s.name)) = true := by
+  simp only [List.all_eq_true, decide_eq_true_eq]
+  intro s hs
+  apply Bool.eq_iff_iff.mpr
+  simp only [List.contains_iff_mem, Bool.not_eq_true', decide_eq_false_iff_not]
+  rw [mem_validate_unreachable]
+  exact ⟨fun ⟨_, _, _, h⟩ => h, fun h => ⟨s, hs, rfl, h⟩⟩
+
+private theorem mem_unreachableStates_kind {d : Definition} {i : Issue} (h : i ∈ unreachableStates d) :
+    ∃ n, i = .unreachable n := by
+  simp only [unreachableStates, List.mem_filterMap] at h
+  obtain ⟨s, _, h⟩ := h
+  split at h
+  · cases h
+  · exact ⟨_, (Option.some.inj h).symm⟩
+
+private theorem mem_validate_unknownState (d : Definition) (s : State) (hs : s ∈ d.states)
+    (p : Place) (f t : String) (ht : (p, f, t) ∈ targets s) :
+    Issue.unknownState p f t ∈ validate d ↔ (names d).contains t = false := by
+  rw [mem_validate]
+  constructor
+  · rintro (h | h | h | ⟨h, _⟩ | h)
+    · obtain ⟨_, _, h⟩ := mem_missingFields h; cases h
+    · obtain ⟨_, _, t', h, hc⟩ := mem_unknownStates h
+      cases h
+      exact hc
+    · obtain ⟨_, h⟩ := mem_unreachableStates_kind h; cases h
+    · cases h
+    · obtain ⟨_, h⟩ := mem_misplacedStatesAll h; cases h
+  · intro hc
+    refine .inr (.inl ?_)
+    simp only [unknownStates, List.mem_append, List.mem_flatMap, List.mem_filterMap]
+    refine .inr ⟨s, hs, (p, f, t), ht, ?_⟩
+    simp only [hc, Bool.false_eq_true, ite_false]
+
+/-- `validate` reports a `Next`, a `Next` of `Choices`, a `Default` or a `Next` of `Catch` exactly
+when it names no State. -/
+theorem unknownState_mem_validate (d : Definition) :
+    d.states.all (fun s => (targets s).all fun x =>
+      (validate d).contains (.unknownState x.1 x.2.1 x.2.2) = !(names d).contains x.2.2) = true := by
+  simp only [List.all_eq_true, decide_eq_true_eq]
+  intro s hs ⟨p, f, t⟩ ht
+  apply Bool.eq_iff_iff.mpr
+  simp only [List.contains_iff_mem, Bool.not_eq_true']
+  exact mem_validate_unknownState d s hs p f t ht
+
+/-- `validate` reports `StartAt` exactly when it names no State. -/
+theorem startAt_unknown_mem_validate (d : Definition) :
+    d.startAt.all (fun t =>
+      (validate d).contains (.unknownState .root "StartAt" t) = !(names d).contains t) = true := by
+  cases hstart : d.startAt with
+  | none => rfl
+  | some t =>
+    simp only [Option.all_some, decide_eq_true_eq]
+    apply Bool.eq_iff_iff.mpr
+    simp only [List.contains_iff_mem, Bool.not_eq_true']
+    rw [mem_validate]
+    constructor
+    · rintro (h | h | h | ⟨h, _⟩ | h)
+      · obtain ⟨_, _, h⟩ := mem_missingFields h; cases h
+      · obtain ⟨_, _, t', h, hc⟩ := mem_unknownStates h
+        cases h
+        exact hc
+      · obtain ⟨_, h⟩ := mem_unreachableStates_kind h; cases h
+      · cases h
+      · obtain ⟨_, h⟩ := mem_misplacedStatesAll h; cases h
+    · intro hc
+      refine .inr (.inl ?_)
+      simp only [unknownStates, List.mem_append, List.mem_flatMap, List.mem_filterMap]
+      refine .inl ⟨t, by simp [hstart], ?_⟩
+      simp only [hc, Bool.false_eq_true, ite_false]
+
 end Sanchoris.SkillDefinition

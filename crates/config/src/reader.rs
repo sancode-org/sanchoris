@@ -135,6 +135,16 @@ impl Reader {
     }
 }
 
-pub(crate) fn to_json(value: &Value) -> serde_json::Value {
-    serde_json::to_value(value).unwrap_or(serde_json::Value::Null)
+impl Reader {
+    /// The value as JSON; a value that JSON cannot hold, such as a key that is not a string, is a
+    /// format issue.
+    pub(crate) fn json(&mut self, value: &Value, path: &str) -> Option<serde_json::Value> {
+        match serde_json::to_value(value) {
+            Ok(json) => Some(json),
+            Err(error) => {
+                self.format(path, format!("cannot be read as JSON: {error}"));
+                None
+            }
+        }
+    }
 }

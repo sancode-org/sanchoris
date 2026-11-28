@@ -3,7 +3,7 @@ use serde_yaml_ng::{Mapping, Value};
 
 use crate::event_pattern;
 use crate::issue::{Check, join};
-use crate::reader::{Reader, to_json};
+use crate::reader::Reader;
 use crate::schedule::{self, Schedule};
 
 /// The architecture of a workspace or a host.
@@ -327,7 +327,7 @@ fn trigger(r: &mut Reader, path: &str, value: &Value) -> Option<Trigger> {
     let enabled = r.boolean(enabled, &join(path, "Enabled"));
     let pattern_path = join(path, "EventPattern");
     let event = m.get("EventPattern").map(|v| {
-        let pattern = to_json(v);
+        let pattern = r.json(v, &pattern_path)?;
         let issues = event_pattern::check(&pattern, &pattern_path);
         let ok = issues.is_empty();
         for (p, message) in issues {

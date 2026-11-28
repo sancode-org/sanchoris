@@ -609,3 +609,17 @@ fn a_message_with_an_undefined_value_fails() {
 fn a_missing_config_file_fails() {
     assert_eq!(issues(&BTreeMap::new()), config_issue(Check::Required, ""));
 }
+
+#[test]
+fn a_value_that_json_cannot_hold_fails() {
+    let yaml = replace(
+        SKILL_YAML,
+        "  Done:\n    Type: Succeed\n",
+        "  Done:\n    Type: Succeed\n    Comment: done\n  Note:\n    Type: Pass\n    Result: { [1, 2]: one }\n    End: true\n",
+    );
+    let found = issues(&with_skill(CONFIG, SKILL_MD, &yaml));
+    assert!(
+        found.contains(&skill_issue(Check::Format, "")[0]),
+        "{found:?}"
+    );
+}

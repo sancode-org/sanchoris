@@ -83,4 +83,4 @@ instance : Arbitrary Definition := ⟨genDefinition⟩
 instance : Shrinkable Definition := ⟨fun _ => []⟩
 
 set_option assay.samples 300 in
-#assay Sanchoris.SkillDefinition.validate
+#assay Sanchoris.SkillDefinition.validate Sanchoris.SkillDefinition.unreachableStates Sanchoris.SkillDefinition.unknownStates
