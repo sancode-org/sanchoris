@@ -25,6 +25,7 @@ nix run github:sancode-org/sanchoris#driver # sanchoris-driver
 | `crates/driver` | `sanchoris-driver`, which runs workspaces on a user's machine |
 | `apps/frontend` | The screens (React 19, react-aria-components, Tailwind CSS v4, lucide-react, Apollo Client, TanStack Router) |
 | `apps/sanchoris-agent` | `sanchoris-agent`, the program inside a workspace |
+| `infra/tables.json` | The DynamoDB tables: `main` (keys `pk` and `sk`, indexes `gsi1` and `gsi2`) and the append-only `audit` |
 | `lean` | Lean definitions and theorems, compiled to Rust and TypeScript by leanfran (`leanfran.toml`) |
 | `audit` | leanassay audits of the theorems |
 

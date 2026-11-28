@@ -1,0 +1,93 @@
+Comment: Push the branch, open a pull request, and hand CI failures back to the agent until the checks pass
+Inputs: { Repo: string, Issue: number }
+StartAt: Init
+TimeoutSeconds: 14400
+States:
+  Init:
+    Type: Pass
+    Result: { Count: 0 }
+    ResultPath: $.fixes
+    Prompt: { Transition: false }
+    Next: Push
+  Push:
+    Type: Command
+    Run.$: "States.Format('cd {} && git push -u origin HEAD', $.Repo)"
+    ResultPath: null
+    TimeoutSeconds: 300
+    Prompt: { Stdout: false, Stderr: false }
+    Retry:
+      - ErrorEquals: [Command.Failed]
+        IntervalSeconds: 10
+        MaxAttempts: 3
+        BackoffRate: 2
+    Next: OpenPR
+  OpenPR:
+    Type: Command
+    Run.$: "States.Format('cd {} && (gh pr view >/dev/null 2>&1 || gh pr create --fill) && gh pr view --json number,url', $.Repo)"
+    ResultPath: $.pr
+    TimeoutSeconds: 120
+    Next: WaitChecks
+  WaitChecks:
+    Type: Command
+    Run.$: "States.Format('cd {} && until [ \"$(gh pr view --json statusCheckRollup --jq \".statusCheckRollup | length\")\" -gt 0 ]; do sleep 10; done && gh pr checks --watch --fail-fast', $.Repo)"
+    ResultPath: null
+    TimeoutSeconds: 3600
+    Prompt: { Stdout: false }
+    Catch:
+      - ErrorEquals: [Command.Failed]
+        ResultPath: $.checks
+        Next: CanFix
+    Next: Report
+  CanFix:
+    Type: Choice
+    Prompt: { Transition: false }
+    Choices:
+      - Variable: $.fixes.Count
+        NumericGreaterThanEquals: 3
+        Next: GiveUp
+    Default: AskFix
+  AskFix:
+    Type: Command
+    Run: |
+      jq -r '"CI failed on \(.pr.Json.url). Fix it, commit, and run: sanchoris-agent skill continue \(env.SANCHORIS_SKILL_RUN_ID)\n\(.checks.Stdout)"'
+    ResultPath: null
+    TimeoutSeconds: 30
+    Next: AwaitFix
+  AwaitFix:
+    Type: Command
+    Run: sanchoris-agent skill await
+    ResultPath: null
+    TimeoutSeconds: 3600
+    Next: CountFix
+  CountFix:
+    Type: Pass
+    Parameters: { "Count.$": "States.MathAdd($.fixes.Count, 1)" }
+    ResultPath: $.fixes
+    Prompt: { Transition: false }
+    Next: Push
+  GiveUp:
+    Type: Fail
+    Error: Skill.FixesExhausted
+    Cause: The checks still fail after 3 fixes
+  Report:
+    Type: Command
+    Run: |
+      input=$(cat)
+      url=$(jq -r .pr.Json.url <<<"$input")
+      issue=$(jq -r .Issue <<<"$input")
+      cd "$(jq -r .Repo <<<"$input")"
+      gh issue view "$issue" --json comments --jq '.comments[].body' | grep -qF "$url" || gh issue comment "$issue" --body "Pull request $url is open and the checks pass."
+    ResultPath: null
+    TimeoutSeconds: 60
+    End: true
+Layout:
+  Init: { x: 40, y: 120 }
+  Push: { x: 240, y: 120 }
+  OpenPR: { x: 440, y: 120 }
+  WaitChecks: { x: 640, y: 120 }
+  Report: { x: 840, y: 120 }
+  CanFix: { x: 640, y: 300 }
+  AskFix: { x: 440, y: 300 }
+  AwaitFix: { x: 240, y: 300 }
+  CountFix: { x: 40, y: 300 }
+  GiveUp: { x: 840, y: 300 }

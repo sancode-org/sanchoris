@@ -11,6 +11,10 @@ repository = "https://github.com/sancode-org/sanchoris"
 [workspace.dependencies]
 axum = "0.8"
 clap = { version = "4", features = ["derive"] }
+indexmap = "2"
 leanfran = { version = "=0.14.0", default-features = false }
+serde_json = { version = "1", features = ["preserve_order"] }
+serde_yaml_ng = "0.10"
+thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal"] }
 tower-http = { version = "0.6", features = ["fs"] }

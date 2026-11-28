@@ -27,11 +27,13 @@ The previous implementation at `sancode-org/sanchoris-old` can be read for refer
 - `leanfran.toml` compiles the Lean modules with `leanfran generate` (leanfran 0.14.0). It has one `[[generate]]` table per destination, and each table lists its modules by name. A module goes to the crate or app that the table of what Lean covers in `projects/sanchoris/architecture.md` names: a Rust crate gets `crates/<crate>/src/generated` (module `crate::generated`), a TypeScript app gets `apps/<app>/src/generated`. A module that both languages call is listed in a Rust table and a TypeScript table. The generated code is committed and never edited by hand; `make check` regenerates it and fails on a diff or an untracked file.
 - Rust owns input and output (HTTP, DynamoDB, S3, SQS, GitHub, Stripe, Firecracker) and the integration with crates, and calls the generated functions of its own crate.
 - TypeScript owns the screens (`apps/frontend`) and the workspace program (`apps/sanchoris-agent`), and calls the generated modules of its own app for pure computations.
+- `sanchoris-config` checks the formats of the configuration files and the references to the outside in Rust, and the required keys, the references to States, reachability from `StartAt`, the terminal State and the place of `States.ALL` of a `skill.yaml` with `Sanchoris.SkillDefinition.validate`. The helpers of `validate` (`missingFields`, `unknownStates`, `unreachableStates`, `misplacedStatesAll`) are checked by the tests of `crates/config/tests/validate.rs`.
 - `audit/` is a separate Lake package that requires `lean/` by path and leanassay by commit. `audit/Audit/<Module>.lean` has one `#assay` line per generated function that Rust or TypeScript calls. A change that adds such a function adds its theorems and its `#assay` line.
 
 | Function | Called from | Theorems | `#assay` |
 |---|---|---|---|
 | `Sanchoris.Host.canStartWorkspace` | `sanchoris-core`, `apps/frontend` | `canStartWorkspace_within_limit` (a host that can start one more workspace stays within `maxWorkspaces`), `canStartWorkspace_iff` (the decision as a condition) | 8 mutants, 8 killed, 0 holes |
+| `Sanchoris.SkillDefinition.validate` | `sanchoris-config` | `validate_all_reachable` (a definition that passes reaches every State from `StartAt`, by the inductive `Reachable`), `validate_reaches_terminal` (it has a terminal State that `StartAt` reaches), `validate_startAt_defined` and `validate_successors_defined` (`StartAt`, `Next`, the `Next` of `Choices`, `Default` and the `Next` of `Catch` name States), `noTerminal_mem_validate` (the `noTerminal` issue as a condition) | 4 mutants, 4 killed, 0 holes |
 
 ## Commands
 
