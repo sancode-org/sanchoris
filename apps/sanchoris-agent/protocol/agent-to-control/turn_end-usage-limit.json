@@ -1,0 +1,29 @@
+{
+  "type": "turn_end",
+  "threadId": "th_01JD8Q2M4K",
+  "seq": 4,
+  "turn": 2,
+  "result": "failed",
+  "summary": "You've hit your limit",
+  "error": {
+    "code": "Worker.UsageLimit",
+    "message": "You've hit your limit",
+    "resetsAt": 1795842000
+  },
+  "usage": {
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "cacheReadInputTokens": 0,
+    "cacheCreationInputTokens": 0
+  },
+  "costUsd": null,
+  "durationMs": 900,
+  "commits": [
+    {
+      "repo": "frontend",
+      "branch": "sanchoris/th_01JD8Q2M4K",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "pushed": true
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "type": "skill_request",
+  "threadId": "th_01JD8Q2M4K",
+  "seq": 6,
+  "requestId": "9b2f8c1e-5d4a-4c3b-8a2e-1f0d9c8b7a6e",
+  "request": {
+    "action": "run",
+    "name": "open-pr-green-ci",
+    "input": {
+      "Repo": "frontend",
+      "Issue": 35
+    }
+  }
+}

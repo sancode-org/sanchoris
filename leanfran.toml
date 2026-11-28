@@ -17,3 +17,9 @@ lake-dir = "lean"
 out-dir = "crates/config/src/generated"
 path = "crate::generated"
 modules = ["Sanchoris.SkillDefinition"]
+
+[[generate]]
+lang = "typescript"
+lake-dir = "lean"
+out-dir = "apps/sanchoris-agent/src/generated"
+modules = ["Sanchoris.AgentInput"]

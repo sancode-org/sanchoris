@@ -5,7 +5,14 @@
   "bin": {
     "sanchoris-agent": "./src/main.ts"
   },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.332",
+    "leanfran": "0.14.0",
+    "ws": "^8.23.0",
+    "zod": "^4.6.7"
+  },
   "devDependencies": {
-    "@types/node": "^26.6.11"
+    "@types/node": "^26.6.11",
+    "@types/ws": "^8.18.2"
   }
 }

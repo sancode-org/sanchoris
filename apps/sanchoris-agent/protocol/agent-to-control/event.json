@@ -1,0 +1,13 @@
+{
+  "type": "event",
+  "threadId": "th_01JD8Q2M4K",
+  "seq": 2,
+  "kind": "tool_use",
+  "data": {
+    "id": "toolu_01",
+    "name": "Bash",
+    "input": {
+      "command": "pnpm test"
+    }
+  }
+}

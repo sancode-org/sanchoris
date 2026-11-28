@@ -1,0 +1,25 @@
+{
+  "type": "turn_end",
+  "threadId": "th_01JD8Q2M4K",
+  "seq": 3,
+  "turn": 1,
+  "result": "completed",
+  "summary": "Fixed the flaky test and ran open-pr-green-ci (run 1).",
+  "error": null,
+  "usage": {
+    "inputTokens": 1200,
+    "outputTokens": 800,
+    "cacheReadInputTokens": 50000,
+    "cacheCreationInputTokens": 3000
+  },
+  "costUsd": 0.42,
+  "durationMs": 185000,
+  "commits": [
+    {
+      "repo": "frontend",
+      "branch": "sanchoris/th_01JD8Q2M4K",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "pushed": true
+    }
+  ]
+}

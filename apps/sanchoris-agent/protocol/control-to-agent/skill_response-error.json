@@ -1,0 +1,11 @@
+{
+  "type": "skill_response",
+  "threadId": "th_01JD8Q2M4K",
+  "seq": 10,
+  "requestId": "9b2f8c1e-5d4a-4c3b-8a2e-1f0d9c8b7a6f",
+  "ok": false,
+  "error": {
+    "code": "Skill.ContinuePending",
+    "message": "SkillRun 1 already has a continue waiting"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "type": "start",
+  "threadId": "th_01JD8Q2M4K",
+  "seq": 1,
+  "thread": {
+    "name": "th_01JD8Q2M4K",
+    "title": "Fix flaky checkout test"
+  },
+  "project": {
+    "name": "shop",
+    "repos": [
+      {
+        "name": "frontend",
+        "repo": "github.com/acme/shop-web",
+        "branch": "sanchoris/th_01JD8Q2M4K"
+      }
+    ],
+    "scripts": []
+  },
+  "worker": {
+    "agent": "codex",
+    "model": "gpt-5.5-codex",
+    "credential": {
+      "kind": "codex_auth_json",
+      "value": "{\"tokens\":\"<tokens>\"}"
+    }
+  },
+  "gitAuthor": {
+    "name": "sanchoris[bot]",
+    "email": "sanchoris[bot]@users.noreply.github.com"
+  },
+  "skills": {
+    "url": null,
+    "sha256": null,
+    "entries": []
+  },
+  "record": {
+    "url": "https://sanchoris-records.s3.ap-northeast-1.amazonaws.com/u/u_01/threads/th_01JD8Q2M4K/records/000003.tar.gz?X-Amz-Signature=<signature>",
+    "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "sessionId": "019a2b3c-4d5e-7f60-8a9b-0c1d2e3f4a5b",
+    "turn": 3
+  },
+  "instruction": "[sanchoris] Skill open-pr-green-ci (run 1): SUCCEEDED.",
+  "heartbeatSeconds": 60
+}

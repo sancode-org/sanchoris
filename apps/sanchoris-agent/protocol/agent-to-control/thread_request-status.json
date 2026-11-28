@@ -1,0 +1,10 @@
+{
+  "type": "thread_request",
+  "threadId": "th_01JD8Q2M4K",
+  "seq": 13,
+  "requestId": "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e72",
+  "request": {
+    "action": "status",
+    "name": "th_01JD8Q3N5L"
+  }
+}

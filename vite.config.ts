@@ -25,7 +25,7 @@ export default defineConfig({
   server: { host: "127.0.0.1" },
   run: {
     tasks: {
-      check: { command: "vp check && vp test", cache: { untrackedEnv: ["TSRS_BINARY"] } },
+      check: { command: "vp check && vp test", cache: false },
     },
   },
 } satisfies ViteUserConfig)

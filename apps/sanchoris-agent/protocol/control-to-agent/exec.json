@@ -1,0 +1,13 @@
+{
+  "type": "exec",
+  "threadId": "th_01JD8Q2M4K",
+  "seq": 7,
+  "idempotencyKey": "1:4:1",
+  "skill": {
+    "name": "open-pr-green-ci",
+    "runId": 1
+  },
+  "run": "gh pr view --json number,url || gh pr create --fill",
+  "stdin": "{\"Repo\":\"frontend\",\"Issue\":35}",
+  "timeoutSeconds": 300
+}

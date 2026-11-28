@@ -1,0 +1,14 @@
+{
+  "type": "rate_limit",
+  "threadId": "th_01JD8Q2M4K",
+  "seq": 5,
+  "status": "allowed",
+  "resetsAt": null,
+  "windows": {
+    "five_hour": {
+      "utilization": 0.42,
+      "resetsAt": 1795842000,
+      "status": "allowed"
+    }
+  }
+}

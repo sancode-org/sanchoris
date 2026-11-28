@@ -1,0 +1,12 @@
+{
+  "type": "thread_response",
+  "threadId": "th_01JD8Q2M4K",
+  "seq": 11,
+  "requestId": "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
+  "ok": true,
+  "result": {
+    "Name": "th_01JD8Q3N5L",
+    "Status": "PENDING",
+    "PendingReason": "concurrency"
+  }
+}

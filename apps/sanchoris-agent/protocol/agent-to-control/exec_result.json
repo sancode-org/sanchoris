@@ -1,0 +1,10 @@
+{
+  "type": "exec_result",
+  "threadId": "th_01JD8Q2M4K",
+  "seq": 14,
+  "idempotencyKey": "1:4:1",
+  "exitCode": 0,
+  "stdout": "{\"number\":52,\"url\":\"https://github.com/acme/shop-web/pull/52\"}\n",
+  "stderr": "",
+  "timedOut": false
+}
