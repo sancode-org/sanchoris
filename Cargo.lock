@@ -640,6 +640,7 @@ dependencies = [
  "sanchoris-config",
  "serde_json",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

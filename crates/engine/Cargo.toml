@@ -13,3 +13,4 @@ thiserror.workspace = true
 
 [dev-dependencies]
 sanchoris-config = { path = "../config" }
+tokio = { workspace = true, features = ["rt"] }

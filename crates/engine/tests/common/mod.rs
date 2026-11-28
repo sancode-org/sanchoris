@@ -8,9 +8,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use sanchoris_config::{Outside, validate};
 use sanchoris_engine::lean::{Definition, Entry, ExecOutput};
 use sanchoris_engine::{
-    Engine, EngineError, ExecKey, ExecRequest, JobRecord, MemoryStore, Message, Origin, Response,
-    RunRecord, StartRequest, Store, StoreError, Transaction, Workspace, definition, exec_output,
+    Engine, EngineError, ExecKey, ExecRequest, JobRecord, Message, Origin, Response, RunRecord,
+    StartRequest, Store, StoreError, Transaction, Workspace, definition, exec_output,
 };
+
+pub use crate::backend::TestStore;
 use serde_json::{Value, json};
 
 pub const THREAD: &str = "th_01JD8Q2M4K";
@@ -59,16 +61,29 @@ pub fn open_pr_green_ci() -> Definition {
 /// A store that fails at the operations whose numbers (from 1) are in `crash_at`, before doing
 /// them, as a process that stops there, and after doing those in `crash_after`, as a process
 /// that stops before it hears that the write is done.
-#[derive(Debug, Default)]
-pub struct FaultStore {
-    pub inner: MemoryStore,
+#[derive(Debug)]
+pub struct FaultStore<S> {
+    pub inner: S,
     pub ops: usize,
     pub crash_at: BTreeSet<usize>,
     pub crash_after: BTreeSet<usize>,
     pub commits: usize,
+    /// The transactions in the order they were written.
+    pub log: Vec<Transaction>,
 }
 
-impl FaultStore {
+impl<S> FaultStore<S> {
+    pub fn new(inner: S) -> Self {
+        FaultStore {
+            inner,
+            ops: 0,
+            crash_at: BTreeSet::new(),
+            crash_after: BTreeSet::new(),
+            commits: 0,
+            log: Vec::new(),
+        }
+    }
+
     fn op(&mut self) -> Result<(), StoreError> {
         self.ops += 1;
         if self.crash_at.contains(&self.ops) {
@@ -87,66 +102,68 @@ impl FaultStore {
     }
 }
 
-impl Store for FaultStore {
-    fn commit(&mut self, tx: Transaction) -> Result<(), StoreError> {
+impl<S: Store> Store for FaultStore<S> {
+    async fn commit(&mut self, tx: Transaction) -> Result<(), StoreError> {
         self.op()?;
-        self.inner.commit(tx)?;
+        let written = tx.clone();
+        self.inner.commit(tx).await?;
         self.commits += 1;
+        self.log.push(written);
         self.done(())
     }
-    fn run(&mut self, id: u64) -> Result<Option<RunRecord>, StoreError> {
+    async fn run(&mut self, id: u64) -> Result<Option<RunRecord>, StoreError> {
         self.op()?;
-        self.inner.run(id)
+        self.inner.run(id).await
     }
-    fn runs_of_thread(&mut self, thread: &str) -> Result<Vec<RunRecord>, StoreError> {
+    async fn runs_of_thread(&mut self, thread: &str) -> Result<Vec<RunRecord>, StoreError> {
         self.op()?;
-        self.inner.runs_of_thread(thread)
+        self.inner.runs_of_thread(thread).await
     }
-    fn entries(&mut self, run: u64) -> Result<Vec<Entry>, StoreError> {
+    async fn entries(&mut self, run: u64) -> Result<Vec<Entry>, StoreError> {
         self.op()?;
-        self.inner.entries(run)
+        self.inner.entries(run).await
     }
-    fn put_exec_result(
+    async fn put_exec_result(
         &mut self,
         key: ExecKey,
         output: ExecOutput,
     ) -> Result<ExecOutput, StoreError> {
         self.op()?;
-        let kept = self.inner.put_exec_result(key, output)?;
+        let kept = self.inner.put_exec_result(key, output).await?;
         self.done(kept)
     }
-    fn exec_result(&mut self, key: ExecKey) -> Result<Option<ExecOutput>, StoreError> {
+    async fn exec_result(&mut self, key: ExecKey) -> Result<Option<ExecOutput>, StoreError> {
         self.op()?;
-        self.inner.exec_result(key)
+        self.inner.exec_result(key).await
     }
-    fn exec_request(&mut self, key: ExecKey) -> Result<Option<ExecRequest>, StoreError> {
+    async fn exec_request(&mut self, key: ExecKey) -> Result<Option<ExecRequest>, StoreError> {
         self.op()?;
-        self.inner.exec_request(key)
+        self.inner.exec_request(key).await
     }
-    fn jobs(&mut self) -> Result<Vec<JobRecord>, StoreError> {
+    async fn jobs(&mut self) -> Result<Vec<JobRecord>, StoreError> {
         self.op()?;
-        self.inner.jobs()
+        self.inner.jobs().await
     }
-    fn ack(&mut self, job: u64) -> Result<(), StoreError> {
+    async fn ack(&mut self, job: u64) -> Result<(), StoreError> {
         self.op()?;
-        self.inner.ack(job)?;
+        self.inner.ack(job).await?;
         self.done(())
     }
-    fn response(&mut self, request: &str) -> Result<Option<Response>, StoreError> {
+    async fn response(&mut self, request: &str) -> Result<Option<Response>, StoreError> {
         self.op()?;
-        self.inner.response(request)
+        self.inner.response(request).await
     }
-    fn await_order(&mut self, thread: &str) -> Result<u64, StoreError> {
+    async fn await_order(&mut self, thread: &str) -> Result<u64, StoreError> {
         self.op()?;
-        self.inner.await_order(thread)
+        self.inner.await_order(thread).await
     }
-    fn last_run_id(&mut self) -> Result<u64, StoreError> {
+    async fn last_run_id(&mut self) -> Result<u64, StoreError> {
         self.op()?;
-        self.inner.last_run_id()
+        self.inner.last_run_id().await
     }
-    fn messages(&mut self, thread: &str) -> Result<Vec<Message>, StoreError> {
+    async fn messages(&mut self, thread: &str) -> Result<Vec<Message>, StoreError> {
         self.op()?;
-        self.inner.messages(thread)
+        self.inner.messages(thread).await
     }
 }
 
@@ -241,13 +258,13 @@ struct Recorder {
 }
 
 impl Workspace for Recorder {
-    fn exec(&mut self, request: &ExecRequest) {
+    async fn exec(&mut self, request: &ExecRequest) {
         self.requests.push(request.clone());
     }
 }
 
 pub struct Sim {
-    pub engine: Engine<FaultStore>,
+    pub engine: Engine<FaultStore<TestStore>>,
     pub now: u64,
     pub skills: BTreeMap<String, Definition>,
     script: Script,
@@ -272,9 +289,9 @@ pub struct Sim {
 }
 
 impl Sim {
-    pub fn new(skills: BTreeMap<String, Definition>, script: Script, agent: Agent) -> Sim {
+    pub async fn new(skills: BTreeMap<String, Definition>, script: Script, agent: Agent) -> Sim {
         Sim {
-            engine: Engine::new(FaultStore::default()),
+            engine: Engine::new(FaultStore::new(crate::backend::store().await)),
             now: 1_795_858_200_000,
             skills,
             script,
@@ -293,8 +310,21 @@ impl Sim {
         }
     }
 
-    pub fn store(&self) -> &MemoryStore {
-        &self.engine.store.inner
+    /// The store under the one that fails, read without counting operations.
+    pub fn store(&mut self) -> &mut TestStore {
+        &mut self.engine.store.inner
+    }
+
+    pub async fn outbox(&mut self) -> Vec<Message> {
+        self.store().messages(THREAD).await.expect("the outbox")
+    }
+
+    pub async fn has_exec_result(&mut self, key: ExecKey) -> bool {
+        self.store()
+            .exec_result(key)
+            .await
+            .expect("a result")
+            .is_some()
     }
 
     fn deliver_at(&mut self, at: u64, d: Delivery) {
@@ -347,15 +377,15 @@ impl Sim {
     }
 
     /// Runs one delivery; false when the engine stopped and it has to be sent again.
-    fn run_delivery(&mut self, d: &Delivery) -> bool {
+    async fn run_delivery(&mut self, d: &Delivery) -> bool {
         let now = self.now;
         match d {
             Delivery::ExecResult(key, output) => {
-                let r = self.engine.exec_result(*key, output.clone(), now);
+                let r = self.engine.exec_result(*key, output.clone(), now).await;
                 self.crashed(r).is_some()
             }
             Delivery::Await { key, request } => {
-                let r = self.engine.await_(request, key.run, now);
+                let r = self.engine.await_(request, key.run, now).await;
                 match self.crashed(r) {
                     Some(response) => {
                         if let Response::Error { message, .. } = &response {
@@ -373,7 +403,7 @@ impl Sim {
                 output,
                 request,
             } => {
-                let r = self.engine.continue_(request, *run, output, now);
+                let r = self.engine.continue_(request, *run, output, now).await;
                 match self.crashed(r) {
                     Some(response) => {
                         self.responses.push((request.clone(), response));
@@ -394,7 +424,7 @@ impl Sim {
                     definition: self.skills[skill].clone(),
                     input: input.clone(),
                 };
-                let r = self.engine.start(start, now);
+                let r = self.engine.start(start, now).await;
                 match self.crashed(r) {
                     Some(response) => {
                         self.responses.push((request.clone(), response));
@@ -406,16 +436,16 @@ impl Sim {
         }
     }
 
-    fn start_command(&mut self, request: ExecRequest) {
+    async fn start_command(&mut self, request: ExecRequest) {
         *self.sent.entry(request.key).or_default() += 1;
         if !self.started.insert(request.key) {
             return;
         }
         let entry = self
-            .store()
-            .entries
-            .get(&(request.key.run, request.key.seq))
-            .cloned()
+            .entries(request.key.run)
+            .await
+            .into_iter()
+            .find(|e| sanchoris_engine::json::u64_of(&e.seq) == request.key.seq)
             .expect("the entry of a command");
         let call = Call {
             state: entry.state.clone(),
@@ -457,13 +487,8 @@ impl Sim {
 
     /// Reads the new messages of the thread: the agent answers notifications, and an `await`
     /// ends with the Output that arrives for it.
-    fn read_messages(&mut self) -> bool {
-        let messages = self
-            .store()
-            .outboxes
-            .get(THREAD)
-            .cloned()
-            .unwrap_or_default();
+    async fn read_messages(&mut self) -> bool {
+        let messages = self.outbox().await;
         let fresh: Vec<Message> = messages[self.seen..].to_vec();
         self.seen = messages.len();
         let now = self.now;
@@ -508,7 +533,7 @@ impl Sim {
     }
 
     /// Runs until nothing is left to do, or `until` (milliseconds of the clock) is reached.
-    pub fn run_until(&mut self, until: u64) {
+    pub async fn run_until(&mut self, until: u64) {
         let mut rounds = 0;
         loop {
             rounds += 1;
@@ -523,31 +548,38 @@ impl Sim {
                 .map(|(i, _)| i)
             {
                 let (_, _, d) = self.deliveries[i].clone();
-                if self.run_delivery(&d) {
+                if self.run_delivery(&d).await {
                     self.deliveries.remove(i);
                 }
-                self.read_messages();
+                self.read_messages().await;
                 continue;
             }
-            let jobs = self.engine.due_jobs(now);
+            let jobs = self.engine.due_jobs(now).await;
             let Some(jobs) = self.crashed(jobs) else {
                 continue;
             };
             if let Some(job) = jobs.first() {
                 let mut recorder = Recorder::default();
-                let r = self.engine.run_job(job, &mut recorder, now);
+                let r = self.engine.run_job(job, &mut recorder, now).await;
                 for request in recorder.requests {
-                    self.start_command(request);
+                    self.start_command(request).await;
                 }
                 self.crashed(r);
-                self.read_messages();
+                self.read_messages().await;
                 continue;
             }
-            if self.read_messages() {
+            if self.read_messages().await {
                 continue;
             }
             let next_delivery = self.deliveries.iter().map(|(at, _, _)| *at).min();
-            let next_job = self.store().jobs.values().map(|j| j.due()).min();
+            let next_job = self
+                .store()
+                .jobs()
+                .await
+                .expect("the jobs")
+                .iter()
+                .map(|j| j.job.due())
+                .min();
             let next = match (next_delivery, next_job) {
                 (Some(a), Some(b)) => a.min(b),
                 (Some(a), None) | (None, Some(a)) => a,
@@ -560,50 +592,60 @@ impl Sim {
         }
     }
 
-    pub fn run(&mut self) {
-        self.run_until(u64::MAX);
+    pub async fn run(&mut self) {
+        self.run_until(u64::MAX).await;
     }
 
     /// Sends again the commands that run, as for a Workspace that was restored.
-    pub fn restore_workspace(&mut self) {
+    pub async fn restore_workspace(&mut self) {
         let mut recorder = Recorder::default();
         let now = self.now;
         self.engine
             .redispatch(THREAD, &mut recorder, now)
+            .await
             .expect("redispatch");
         for request in recorder.requests {
             *self.sent.entry(request.key).or_default() += 1;
         }
     }
 
-    pub fn notices(&self) -> Vec<String> {
-        self.store()
-            .outboxes
-            .get(THREAD)
+    pub async fn notices(&mut self) -> Vec<String> {
+        self.outbox()
+            .await
             .into_iter()
-            .flatten()
             .filter_map(|m| match m {
-                Message::Notice { text, .. } => Some(text.clone()),
+                Message::Notice { text, .. } => Some(text),
                 _ => None,
             })
             .collect()
     }
 
-    pub fn run_record(&self, id: u64) -> RunRecord {
-        self.store().runs[&id].clone()
+    pub async fn run_record(&mut self, id: u64) -> RunRecord {
+        self.store()
+            .run(id)
+            .await
+            .expect("the SkillRun")
+            .expect("a SkillRun")
     }
 
-    pub fn entries(&self, run: u64) -> Vec<Entry> {
-        self.store()
-            .entries
-            .range((run, 0)..=(run, u64::MAX))
-            .map(|(_, e)| e.clone())
-            .collect()
+    pub async fn entries(&mut self, run: u64) -> Vec<Entry> {
+        self.store().entries(run).await.expect("the entries")
+    }
+
+    /// The StateEntries of every SkillRun of the store, by SkillRun.
+    pub async fn all_entries(&mut self) -> Vec<Vec<Entry>> {
+        let last = self.store().last_run_id().await.expect("the last SkillRun");
+        let mut all = Vec::new();
+        for run in 1..=last {
+            all.push(self.entries(run).await);
+        }
+        all
     }
 
     /// The States of the StateEntries of a SkillRun with their statuses.
-    pub fn path(&self, run: u64) -> Vec<(String, String)> {
+    pub async fn path(&mut self, run: u64) -> Vec<(String, String)> {
         self.entries(run)
+            .await
             .iter()
             .map(|e| (e.state.clone(), format!("{:?}", e.status)))
             .collect()

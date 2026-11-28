@@ -1,8 +1,6 @@
 //! `open-pr-green-ci` against a Workspace whose commands answer from a script.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use sanchoris_engine::lean::{EntryStatus, RunStatus};
 use sanchoris_engine::{ExecKey, Response, exec_output};
 use serde_json::{Value, json};
@@ -89,14 +87,18 @@ fn agent(plan: Plan) -> Agent {
     })
 }
 
-fn sim(plan: Plan) -> Sim {
-    let mut sim = Sim::new(common::skills(&[]), script(plan), agent(plan));
+async fn sim(plan: Plan) -> Sim {
+    let mut sim = Sim::new(skills(&[]), script(plan), agent(plan)).await;
     sim.start("open-pr-green-ci", json!({"Repo": "frontend", "Issue": 35}));
     sim
 }
 
-fn states(sim: &Sim) -> Vec<String> {
-    sim.entries(1).iter().map(|e| e.state.clone()).collect()
+async fn states(sim: &mut Sim) -> Vec<String> {
+    sim.entries(1)
+        .await
+        .iter()
+        .map(|e| e.state.clone())
+        .collect()
 }
 
 const HEAD: &str = "[sanchoris] Skill open-pr-green-ci (run 1): ";
@@ -105,14 +107,14 @@ fn notice(text: &str) -> String {
     format!("{HEAD}{text}")
 }
 
-#[test]
-fn the_checks_pass() {
-    let mut sim = sim(PLAN);
-    sim.run();
-    let record = sim.run_record(1);
+#[tokio::test]
+async fn the_checks_pass() {
+    let mut sim = sim(PLAN).await;
+    sim.run().await;
+    let record = sim.run_record(1).await;
     assert_eq!(record.run.status, RunStatus::Succeeded);
     assert_eq!(
-        states(&sim),
+        states(&mut sim).await,
         ["Init", "Push", "OpenPR", "WaitChecks", "Report"]
     );
     let output = sanchoris_engine::json::from_lean(record.run.output.as_ref().unwrap());
@@ -126,7 +128,7 @@ fn the_checks_pass() {
         })
     );
     assert_eq!(
-        sim.notices(),
+        sim.notices().await,
         [
             notice("Init -> Push -> OpenPR. Exit 0."),
             notice(&format!("OpenPR -> WaitChecks. Exit 0.\nstdout: {}", pr())),
@@ -162,16 +164,17 @@ fn the_checks_pass() {
     );
 }
 
-#[test]
-fn a_failure_of_ci_goes_to_the_agent_and_its_fix_passes() {
+#[tokio::test]
+async fn a_failure_of_ci_goes_to_the_agent_and_its_fix_passes() {
     let mut sim = sim(Plan {
         checks_pass_at: Some(2),
         ..PLAN
-    });
-    sim.run();
-    assert_eq!(sim.run_record(1).run.status, RunStatus::Succeeded);
+    })
+    .await;
+    sim.run().await;
+    assert_eq!(sim.run_record(1).await.run.status, RunStatus::Succeeded);
     assert_eq!(
-        states(&sim),
+        states(&mut sim).await,
         [
             "Init",
             "Push",
@@ -191,7 +194,7 @@ fn a_failure_of_ci_goes_to_the_agent_and_its_fix_passes() {
     assert_eq!(ask.input["checks"]["Error"], "Command.Failed");
     assert_eq!(ask.input["checks"]["ExitCode"], 1);
     assert_eq!(ask.input["checks"]["Stdout"], CHECKS_STDOUT);
-    let entries = sim.entries(1);
+    let entries = sim.entries(1).await;
     assert_eq!(entries[3].status, EntryStatus::Caught);
     let second_push = sim
         .calls
@@ -201,7 +204,7 @@ fn a_failure_of_ci_goes_to_the_agent_and_its_fix_passes() {
         .unwrap();
     assert_eq!(second_push.input["fixes"], json!({"Count": 1}));
     assert_eq!(second_push.visit, 2);
-    let notices = sim.notices();
+    let notices = sim.notices().await;
     assert_eq!(
         notices[2],
         notice("WaitChecks -> CanFix. Exit 1.\nstderr: some checks were not successful")
@@ -220,14 +223,15 @@ fn a_failure_of_ci_goes_to_the_agent_and_its_fix_passes() {
     assert_eq!(notices[5], notice("CountFix -> Push -> OpenPR. Exit 0."));
 }
 
-#[test]
-fn the_fixes_run_out() {
+#[tokio::test]
+async fn the_fixes_run_out() {
     let mut sim = sim(Plan {
         checks_pass_at: None,
         ..PLAN
-    });
-    sim.run();
-    let record = sim.run_record(1);
+    })
+    .await;
+    sim.run().await;
+    let record = sim.run_record(1).await;
     assert_eq!(record.run.status, RunStatus::Failed);
     assert_eq!(record.run.error.as_deref(), Some("Skill.FixesExhausted"));
     let asks = sim.calls.iter().filter(|c| c.state == "AskFix").count();
@@ -235,29 +239,30 @@ fn the_fixes_run_out() {
     let checks = sim.calls.iter().filter(|c| c.state == "WaitChecks").count();
     assert_eq!(checks, 4);
     assert_eq!(
-        sim.notices().last().unwrap(),
+        sim.notices().await.last().unwrap(),
         &notice(
             "CanFix -> GiveUp -> FAILED.\nError: Skill.FixesExhausted\nCause: The checks still fail after 3 fixes"
         )
     );
-    assert_eq!(sim.entries(1).last().unwrap().state, "GiveUp");
+    assert_eq!(sim.entries(1).await.last().unwrap().state, "GiveUp");
 }
 
-#[test]
-fn push_is_retried_with_backoff() {
+#[tokio::test]
+async fn push_is_retried_with_backoff() {
     let mut sim = sim(Plan {
         push_failures: 2,
         ..PLAN
-    });
+    })
+    .await;
     let start = sim.now;
-    sim.run();
-    assert_eq!(sim.run_record(1).run.status, RunStatus::Succeeded);
+    sim.run().await;
+    assert_eq!(sim.run_record(1).await.run.status, RunStatus::Succeeded);
     let pushes: Vec<_> = sim.calls.iter().filter(|c| c.state == "Push").collect();
     assert_eq!(
         pushes.iter().map(|c| c.attempt).collect::<Vec<_>>(),
         [1, 2, 3]
     );
-    let push = &sim.entries(1)[1];
+    let push = &sim.entries(1).await[1];
     assert_eq!(push.state, "Push");
     assert_eq!(push.status, EntryStatus::Succeeded);
     assert_eq!(push.attempts.to_string(), "3");
@@ -270,7 +275,8 @@ fn push_is_retried_with_backoff() {
     );
     // The first attempt fails after 0.5 s and waits 10 s, the second waits 20 s.
     let opened: Vec<u64> = sim
-        .store()
+        .engine
+        .store
         .log
         .iter()
         .flat_map(|tx| tx.jobs.iter())
@@ -284,41 +290,46 @@ fn push_is_retried_with_backoff() {
         })
         .collect();
     assert_eq!(opened, [10_500, 31_000]);
-    assert_eq!(sim.notices()[0], notice("Init -> Push -> OpenPR. Exit 0."));
+    assert_eq!(
+        sim.notices().await[0],
+        notice("Init -> Push -> OpenPR. Exit 0.")
+    );
 }
 
-#[test]
-fn push_fails_when_its_retries_run_out() {
+#[tokio::test]
+async fn push_fails_when_its_retries_run_out() {
     let mut sim = sim(Plan {
         push_failures: 4,
         ..PLAN
-    });
-    sim.run();
-    let record = sim.run_record(1);
+    })
+    .await;
+    sim.run().await;
+    let record = sim.run_record(1).await;
     assert_eq!(record.run.status, RunStatus::Failed);
     assert_eq!(record.run.error.as_deref(), Some("Command.Failed"));
     assert_eq!(sim.calls.iter().filter(|c| c.state == "Push").count(), 4);
-    assert_eq!(sim.entries(1)[1].status, EntryStatus::Failed);
+    assert_eq!(sim.entries(1).await[1].status, EntryStatus::Failed);
     assert_eq!(
-        sim.notices().last().unwrap(),
+        sim.notices().await.last().unwrap(),
         &notice(
             "Init -> Push -> FAILED.\nError: Command.Failed\nCause: the command exited with code 1"
         )
     );
 }
 
-#[test]
-fn a_command_that_hangs_times_out() {
+#[tokio::test]
+async fn a_command_that_hangs_times_out() {
     let mut sim = sim(Plan {
         checks_hang: true,
         ..PLAN
-    });
+    })
+    .await;
     let start = sim.now;
-    sim.run();
-    let record = sim.run_record(1);
+    sim.run().await;
+    let record = sim.run_record(1).await;
     assert_eq!(record.run.status, RunStatus::Failed);
     assert_eq!(record.run.error.as_deref(), Some("States.Timeout"));
-    let checks = &sim.entries(1)[3];
+    let checks = &sim.entries(1).await[3];
     assert_eq!(checks.state, "WaitChecks");
     assert_eq!(checks.status, EntryStatus::TimedOut);
     let ended = sanchoris_engine::json::u64_of(record.run.finished_at.as_ref().unwrap());
@@ -326,14 +337,14 @@ fn a_command_that_hangs_times_out() {
     assert_eq!(ended - start, 3_000 + 3_600_000);
 }
 
-#[test]
-fn a_timed_out_result_and_the_timer_end_the_state_once() {
+#[tokio::test]
+async fn a_timed_out_result_and_the_timer_end_the_state_once() {
     let mut plan = PLAN;
     plan.checks_hang = true;
-    let mut sim = sim(plan);
+    let mut sim = sim(plan).await;
     // The Workspace kills the command at its TimeoutSeconds and answers timedOut, at the same
     // time as the timer of the engine.
-    sim.run_until(sim.now + 3_000 + 3_600_000 - 1);
+    sim.run_until(sim.now + 3_000 + 3_600_000 - 1).await;
     let key = ExecKey {
         run: 1,
         seq: 4,
@@ -341,21 +352,22 @@ fn a_timed_out_result_and_the_timer_end_the_state_once() {
     };
     sim.engine
         .exec_result(key, exec_output(-1, "", "", true), sim.now)
+        .await
         .unwrap();
     let commits = sim.engine.store.commits;
-    sim.run();
+    sim.run().await;
     assert_eq!(sim.engine.store.commits, commits, "the timer does nothing");
-    let record = sim.run_record(1);
+    let record = sim.run_record(1).await;
     assert_eq!(record.run.error.as_deref(), Some("States.Timeout"));
-    assert_eq!(sim.entries(1)[3].status, EntryStatus::TimedOut);
+    assert_eq!(sim.entries(1).await[3].status, EntryStatus::TimedOut);
 }
 
-#[test]
-fn the_skill_run_times_out() {
+#[tokio::test]
+async fn the_skill_run_times_out() {
     // Each check takes an hour less a second and fails, and each fix 10 s: the fourth check
     // runs at the end of the 4 hours.
     let mut sim = Sim::new(
-        common::skills(&[]),
+        skills(&[]),
         Box::new(|call: &Call| match call.state.as_str() {
             "WaitChecks" => fails(3_599_000, 1, CHECKS_STDOUT, ""),
             "AwaitFix" => Behavior::Await { after_ms: 0 },
@@ -366,34 +378,37 @@ fn the_skill_run_times_out() {
             continue_after_ms: 10_000,
             ..PLAN
         }),
-    );
+    )
+    .await;
     let start = sim.now;
     sim.start("open-pr-green-ci", json!({"Repo": "frontend", "Issue": 35}));
-    sim.run();
-    let record = sim.run_record(1);
+    sim.run().await;
+    let record = sim.run_record(1).await;
     assert_eq!(record.run.status, RunStatus::Failed);
     assert_eq!(record.run.error.as_deref(), Some("States.Timeout"));
     assert_eq!(
         sanchoris_engine::json::u64_of(record.run.finished_at.as_ref().unwrap()) - start,
         14_400_000
     );
-    let last = sim.entries(1).last().unwrap().clone();
+    let last = sim.entries(1).await.last().unwrap().clone();
     assert_eq!(last.status, EntryStatus::Failed);
     assert_eq!(last.error.as_deref(), Some("States.Timeout"));
 }
 
-#[test]
-fn continue_before_await_is_kept_for_it() {
+#[tokio::test]
+async fn continue_before_await_is_kept_for_it() {
     let mut sim = sim(Plan {
         checks_pass_at: Some(2),
         await_after_ms: 10_000,
         continue_after_ms: 0,
         ..PLAN
-    });
-    sim.run();
-    assert_eq!(sim.run_record(1).run.status, RunStatus::Succeeded);
+    })
+    .await;
+    sim.run().await;
+    assert_eq!(sim.run_record(1).await.run.status, RunStatus::Succeeded);
     let await_fix = sim
         .entries(1)
+        .await
         .into_iter()
         .find(|e| e.state == "AwaitFix")
         .unwrap();
@@ -403,21 +418,26 @@ fn continue_before_await_is_kept_for_it() {
             output: sanchoris_engine::json::to_lean(&json!({"Fixed": true}))
         }
     );
-    assert!(sim.run_record(1).run.pending_continue.is_none());
+    assert!(sim.run_record(1).await.run.pending_continue.is_none());
 }
 
-#[test]
-fn continue_answers_errors() {
+#[tokio::test]
+async fn continue_answers_errors() {
     let mut sim = sim(Plan {
         checks_pass_at: None,
         await_after_ms: 3_600_000,
         continue_after_ms: 0,
         ..PLAN
-    });
+    })
+    .await;
     // The first continue waits for the await; the second one fails.
-    sim.run_until(sim.now + 125_000);
+    sim.run_until(sim.now + 125_000).await;
     let now = sim.now;
-    let second = sim.engine.continue_("again", 1, &json!({}), now).unwrap();
+    let second = sim
+        .engine
+        .continue_("again", 1, &json!({}), now)
+        .await
+        .unwrap();
     assert_eq!(
         second,
         Response::Error {
@@ -426,14 +446,20 @@ fn continue_answers_errors() {
         }
     );
     assert_eq!(
-        sim.engine.continue_("again", 1, &json!({}), now).unwrap(),
+        sim.engine
+            .continue_("again", 1, &json!({}), now)
+            .await
+            .unwrap(),
         second,
         "a repeated request has the same answer"
     );
-    sim.run();
+    sim.run().await;
     let now = sim.now;
     assert_eq!(
-        sim.engine.continue_("late", 1, &json!({}), now).unwrap(),
+        sim.engine
+            .continue_("late", 1, &json!({}), now)
+            .await
+            .unwrap(),
         Response::Error {
             code: "Skill.Finished".to_string(),
             message: "SkillRun 1 has finished".to_string()
@@ -441,27 +467,28 @@ fn continue_answers_errors() {
     );
 }
 
-#[test]
-fn a_restored_await_returns_the_output_it_had() {
+#[tokio::test]
+async fn a_restored_await_returns_the_output_it_had() {
     let mut sim = sim(Plan {
         checks_pass_at: Some(2),
         ..PLAN
-    });
+    })
+    .await;
     // Run until the await has its Output but its command has not answered.
     sim.await_answer_after_ms = 1_000;
-    sim.run_until(sim.now + 3_000 + 60_000 + 100 + 5_000);
-    let record = sim.run_record(1);
+    sim.run_until(sim.now + 3_000 + 60_000 + 100 + 5_000).await;
+    let record = sim.run_record(1).await;
     let e = record.run.current.clone().unwrap();
     assert_eq!(e.state, "AwaitFix");
     assert!(matches!(
         e.r#await,
         sanchoris_engine::lean::Await::Delivered { .. }
     ));
-    let before = sim.store().outboxes[THREAD].len();
+    let before = sim.outbox().await.len();
     let now = sim.now;
-    let again = sim.engine.await_("restored", 1, now).unwrap();
+    let again = sim.engine.await_("restored", 1, now).await.unwrap();
     assert!(matches!(again, Response::Ok(_)));
-    let after = &sim.store().outboxes[THREAD][before..];
+    let after = &sim.outbox().await[before..];
     assert_eq!(
         after,
         [sanchoris_engine::Message::ContinueOutput {
@@ -471,11 +498,11 @@ fn a_restored_await_returns_the_output_it_had() {
     );
 }
 
-#[test]
-fn a_result_with_the_same_key_is_used_again() {
-    let mut sim = sim(PLAN);
+#[tokio::test]
+async fn a_result_with_the_same_key_is_used_again() {
+    let mut sim = sim(PLAN).await;
     // Stop the store right after the result of Push is written, before its transition.
-    sim.run_until(sim.now + 999);
+    sim.run_until(sim.now + 999).await;
     let key = ExecKey {
         run: 1,
         seq: 2,
@@ -485,34 +512,36 @@ fn a_result_with_the_same_key_is_used_again() {
     sim.engine.store.crash_at.insert(ops + 2);
     let r = sim
         .engine
-        .exec_result(key, exec_output(0, "", "", false), sim.now + 1);
+        .exec_result(key, exec_output(0, "", "", false), sim.now + 1)
+        .await;
     assert!(r.is_err());
-    assert!(sim.store().exec_results.contains_key(&key));
+    assert!(sim.has_exec_result(key).await);
     assert_eq!(
-        sim.run_record(1).run.current.as_ref().unwrap().state,
+        sim.run_record(1).await.run.current.as_ref().unwrap().state,
         "Push"
     );
     // A restored Workspace would run the command again; the engine takes the result instead.
     sim.now += 1;
-    sim.restore_workspace();
+    sim.restore_workspace().await;
     assert_eq!(sim.sent[&key], 1, "the command is not sent again");
     assert_eq!(
-        sim.run_record(1).run.current.as_ref().unwrap().state,
+        sim.run_record(1).await.run.current.as_ref().unwrap().state,
         "OpenPR"
     );
-    sim.run();
-    assert_eq!(sim.run_record(1).run.status, RunStatus::Succeeded);
+    sim.run().await;
+    assert_eq!(sim.run_record(1).await.run.status, RunStatus::Succeeded);
     assert_eq!(sim.calls.iter().filter(|c| c.state == "Push").count(), 1);
 }
 
-#[test]
-fn each_transition_is_one_write() {
+#[tokio::test]
+async fn each_transition_is_one_write() {
     let mut sim = sim(Plan {
         checks_pass_at: Some(2),
         ..PLAN
-    });
-    sim.run();
-    let log = &sim.store().log;
+    })
+    .await;
+    sim.run().await;
+    let log = &sim.engine.store.log;
     // Every transaction writes its SkillRun over the version it read.
     for (i, tx) in log.iter().enumerate() {
         assert_eq!(tx.run.version, i as u64);
@@ -543,17 +572,17 @@ fn each_transition_is_one_write() {
     assert_eq!(sim.engine.store.commits, log.len());
 }
 
-fn snapshot(sim: &Sim) -> (Vec<(String, String)>, Value, Vec<String>, RunStatus) {
-    let record = sim.run_record(1);
+async fn snapshot(sim: &mut Sim) -> (Vec<(String, String)>, Value, Vec<String>, RunStatus) {
+    let record = sim.run_record(1).await;
     (
-        sim.path(1),
+        sim.path(1).await,
         record
             .run
             .output
             .as_ref()
             .map(sanchoris_engine::json::from_lean)
             .unwrap_or(Value::Null),
-        sim.notices(),
+        sim.notices().await,
         record.run.status,
     )
 }
@@ -561,47 +590,49 @@ fn snapshot(sim: &Sim) -> (Vec<(String, String)>, Value, Vec<String>, RunStatus)
 /// Stops the store at each of its operations in turn, before the operation and after it, and
 /// goes on from what it holds: the SkillRun, its StateEntries, its notifications and the
 /// commands the Workspace ran end the same as without the stop.
-fn sweep(plan: Plan) {
-    let mut baseline = sim(plan);
-    baseline.run();
-    let expected = snapshot(&baseline);
-    let entries = baseline.store().entries.clone();
+async fn sweep(plan: Plan) {
+    let mut baseline = sim(plan).await;
+    baseline.run().await;
+    let expected = snapshot(&mut baseline).await;
+    let entries = baseline.all_entries().await;
     let total = baseline.engine.store.ops;
     for op in 1..=total {
         for after in [false, true] {
-            let mut s = sim(plan);
+            let mut s = sim(plan).await;
             if after {
                 s.engine.store.crash_after.insert(op);
             } else {
                 s.engine.store.crash_at.insert(op);
             }
-            s.run();
+            s.run().await;
             let at = format!("a stop at operation {op} (after it: {after})");
             if !after {
                 assert_eq!(s.crashes, 1, "{at}");
             }
-            assert_eq!(snapshot(&s), expected, "{at}");
-            assert_eq!(s.store().entries, entries, "{at}");
+            assert_eq!(snapshot(&mut s).await, expected, "{at}");
+            assert_eq!(s.all_entries().await, entries, "{at}");
             assert_eq!(s.calls.len(), baseline.calls.len(), "{at}");
         }
     }
 }
 
-#[test]
-fn a_stop_at_any_operation_ends_the_same() {
+#[tokio::test]
+async fn a_stop_at_any_operation_ends_the_same() {
     sweep(Plan {
         checks_pass_at: Some(2),
         ..PLAN
-    });
+    })
+    .await;
 }
 
-#[test]
-fn a_stop_at_any_operation_ends_the_same_with_retries_and_continue_before_await() {
+#[tokio::test]
+async fn a_stop_at_any_operation_ends_the_same_with_retries_and_continue_before_await() {
     sweep(Plan {
         push_failures: 1,
         checks_pass_at: Some(2),
         await_after_ms: 10_000,
         continue_after_ms: 0,
         ..PLAN
-    });
+    })
+    .await;
 }

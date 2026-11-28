@@ -1,34 +1,40 @@
 //! The State types, paths, intrinsic functions and errors of `skill.yaml`.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use sanchoris_engine::json::{from_lean, u64_of};
 use sanchoris_engine::lean::{EntryStatus, RunStatus};
 use sanchoris_engine::notice::OUTPUT_TAIL_BYTES;
 use serde_json::{Value, json};
 
-fn run_skill(yaml: &str, input: Value, script: Script) -> Sim {
+async fn run_skill(yaml: &str, input: Value, script: Script) -> Sim {
     let mut sim = Sim::new(
         skills(&[("test-skill", yaml)]),
         script,
         Box::new(|_, _| Vec::new()),
-    );
+    )
+    .await;
     sim.start("test-skill", input);
-    sim.run();
+    sim.run().await;
     sim
 }
 
-fn output(sim: &Sim) -> Value {
-    from_lean(sim.run_record(1).run.output.as_ref().expect("an Output"))
+async fn output(sim: &mut Sim) -> Value {
+    from_lean(
+        sim.run_record(1)
+            .await
+            .run
+            .output
+            .as_ref()
+            .expect("an Output"),
+    )
 }
 
 fn echo() -> Script {
     Box::new(|call: &Call| ok(10, &format!("{}\n", call.request.command)))
 }
 
-#[test]
-fn pass_parameters_and_intrinsic_functions() {
+#[tokio::test]
+async fn pass_parameters_and_intrinsic_functions() {
     let yaml = r#"Inputs: { Repo: string, Count: number }
 StartAt: Build
 TimeoutSeconds: 60
@@ -53,14 +59,15 @@ States:
     ResultPath: $.built.result
     End: true
 "#;
-    let sim = run_skill(
+    let mut sim = run_skill(
         yaml,
         json!({"Repo": "frontend", "Count": 5, "Tags": ["x", "y"]}),
         echo(),
-    );
-    assert_eq!(sim.run_record(1).run.status, RunStatus::Succeeded);
+    )
+    .await;
+    assert_eq!(sim.run_record(1).await.run.status, RunStatus::Succeeded);
     assert_eq!(
-        output(&sim)["built"],
+        output(&mut sim).await["built"],
         json!({
             "Text": "frontend has 5 items: [\"x\",\"y\"]",
             "Sum": 2,
@@ -96,20 +103,23 @@ States:
     )
 }
 
-fn decides(rule: &str, input: Value) -> bool {
-    let sim = run_skill(&choice_skill(rule), input, echo());
-    match sim.run_record(1).run.status {
+async fn decides(rule: &str, input: Value) -> bool {
+    let mut sim = run_skill(&choice_skill(rule), input, echo()).await;
+    match sim.run_record(1).await.run.status {
         RunStatus::Succeeded => true,
         RunStatus::Failed => {
-            assert_eq!(sim.run_record(1).run.error.as_deref(), Some("Test.No"));
+            assert_eq!(
+                sim.run_record(1).await.run.error.as_deref(),
+                Some("Test.No")
+            );
             false
         }
         other => panic!("the SkillRun is {other:?}"),
     }
 }
 
-#[test]
-fn choice_rules() {
+#[tokio::test]
+async fn choice_rules() {
     let input = json!({"s": "feature/login", "n": 3, "f": 2.5, "b": true, "z": null});
     let cases: [(&str, bool); 18] = [
         ("Variable: $.s\n        StringEquals: feature/login", true),
@@ -141,24 +151,25 @@ fn choice_rules() {
         ),
     ];
     for (rule, expected) in cases {
-        assert_eq!(decides(rule, input.clone()), expected, "{rule}");
+        assert_eq!(decides(rule, input.clone()).await, expected, "{rule}");
     }
 }
 
-#[test]
-fn a_missing_variable_is_a_runtime_error() {
-    let sim = run_skill(
+#[tokio::test]
+async fn a_missing_variable_is_a_runtime_error() {
+    let mut sim = run_skill(
         &choice_skill("Variable: $.missing\n        StringEquals: x"),
         json!({}),
         echo(),
-    );
-    let run = sim.run_record(1).run;
+    )
+    .await;
+    let run = sim.run_record(1).await.run;
     assert_eq!(run.status, RunStatus::Failed);
     assert_eq!(run.error.as_deref(), Some("States.Runtime"));
 }
 
-#[test]
-fn no_choice_matched() {
+#[tokio::test]
+async fn no_choice_matched() {
     let yaml = "Inputs: {}
 StartAt: Decide
 TimeoutSeconds: 60
@@ -172,14 +183,14 @@ States:
   Done:
     Type: Succeed
 ";
-    let sim = run_skill(yaml, json!({"n": 2}), echo());
-    let run = sim.run_record(1).run;
+    let mut sim = run_skill(yaml, json!({"n": 2}), echo()).await;
+    let run = sim.run_record(1).await.run;
     assert_eq!(run.error.as_deref(), Some("States.NoChoiceMatched"));
-    assert_eq!(sim.entries(1)[0].status, EntryStatus::Failed);
+    assert_eq!(sim.entries(1).await[0].status, EntryStatus::Failed);
 }
 
-#[test]
-fn runtime_errors_pass_every_retrier_and_catcher() {
+#[tokio::test]
+async fn runtime_errors_pass_every_retrier_and_catcher() {
     let yaml = r#"Inputs: {}
 StartAt: Run
 TimeoutSeconds: 60
@@ -200,21 +211,21 @@ States:
   Caught:
     Type: Succeed
 "#;
-    let sim = run_skill(yaml, json!({}), echo());
-    let run = sim.run_record(1).run;
+    let mut sim = run_skill(yaml, json!({}), echo()).await;
+    let run = sim.run_record(1).await.run;
     assert_eq!(run.status, RunStatus::Failed);
     assert_eq!(run.error.as_deref(), Some("States.Runtime"));
     assert!(sim.calls.is_empty());
     assert_eq!(
-        sim.notices(),
+        sim.notices().await,
         [
             "[sanchoris] Skill test-skill (run 1): Run -> FAILED.\nError: States.Runtime\nCause: a path names no value"
         ]
     );
 }
 
-#[test]
-fn a_bad_result_path_is_a_runtime_error() {
+#[tokio::test]
+async fn a_bad_result_path_is_a_runtime_error() {
     let yaml = "Inputs: {}
 StartAt: Run
 TimeoutSeconds: 60
@@ -231,14 +242,14 @@ States:
   Caught:
     Type: Succeed
 ";
-    let sim = run_skill(yaml, json!({"list": [1]}), echo());
-    let run = sim.run_record(1).run;
+    let mut sim = run_skill(yaml, json!({"list": [1]}), echo()).await;
+    let run = sim.run_record(1).await.run;
     assert_eq!(run.error.as_deref(), Some("States.Runtime"));
-    assert_eq!(sim.entries(1).len(), 1);
+    assert_eq!(sim.entries(1).await.len(), 1);
 }
 
-#[test]
-fn the_catch_result_has_the_error_and_the_output() {
+#[tokio::test]
+async fn the_catch_result_has_the_error_and_the_output() {
     let yaml = "Inputs: {}
 StartAt: Run
 TimeoutSeconds: 60
@@ -264,14 +275,15 @@ States:
   Done:
     Type: Succeed
 ";
-    let sim = run_skill(
+    let mut sim = run_skill(
         yaml,
         json!({"keep": 1}),
         Box::new(|call: &Call| fails(10, 2, &format!("{}\n", call.state), "boom\n")),
-    );
-    assert_eq!(sim.run_record(1).run.status, RunStatus::Succeeded);
+    )
+    .await;
+    assert_eq!(sim.run_record(1).await.run.status, RunStatus::Succeeded);
     assert_eq!(
-        output(&sim),
+        output(&mut sim).await,
         json!({
             "keep": 1,
             "failure": {
@@ -283,7 +295,7 @@ States:
             }
         })
     );
-    let statuses: Vec<_> = sim.entries(1).iter().map(|e| e.status).collect();
+    let statuses: Vec<_> = sim.entries(1).await.iter().map(|e| e.status).collect();
     assert_eq!(
         statuses,
         [
@@ -294,8 +306,8 @@ States:
     );
 }
 
-#[test]
-fn a_timeout_that_is_caught_stays_timed_out() {
+#[tokio::test]
+async fn a_timeout_that_is_caught_stays_timed_out() {
     let yaml = "Inputs: {}
 StartAt: Run
 TimeoutSeconds: 60
@@ -311,14 +323,14 @@ States:
   Done:
     Type: Succeed
 ";
-    let sim = run_skill(yaml, json!({}), Box::new(|_: &Call| Behavior::TimesOut));
-    assert_eq!(sim.run_record(1).run.status, RunStatus::Succeeded);
-    assert_eq!(sim.entries(1)[0].status, EntryStatus::TimedOut);
-    assert_eq!(output(&sim)["Error"], "States.Timeout");
+    let mut sim = run_skill(yaml, json!({}), Box::new(|_: &Call| Behavior::TimesOut)).await;
+    assert_eq!(sim.run_record(1).await.run.status, RunStatus::Succeeded);
+    assert_eq!(sim.entries(1).await[0].status, EntryStatus::TimedOut);
+    assert_eq!(output(&mut sim).await["Error"], "States.Timeout");
 }
 
-#[test]
-fn wait_seconds_and_timestamp() {
+#[tokio::test]
+async fn wait_seconds_and_timestamp() {
     let yaml = "Inputs: {}
 StartAt: Pause
 TimeoutSeconds: 86400
@@ -338,23 +350,24 @@ States:
         skills(&[("test-skill", yaml)]),
         echo(),
         Box::new(|_, _| Vec::new()),
-    );
+    )
+    .await;
     // 2026-11-28T00:00:00Z.
     sim.now = 1_795_824_000_000;
     let start = sim.now;
     sim.start("test-skill", json!({"a": 1}));
-    sim.run_until(start + 1_000);
-    assert_eq!(sim.run_record(1).run.status, RunStatus::Waiting);
-    assert_eq!(sim.entries(1)[0].status, EntryStatus::Waiting);
-    sim.run();
-    let entries = sim.entries(1);
+    sim.run_until(start + 1_000).await;
+    assert_eq!(sim.run_record(1).await.run.status, RunStatus::Waiting);
+    assert_eq!(sim.entries(1).await[0].status, EntryStatus::Waiting);
+    sim.run().await;
+    let entries = sim.entries(1).await;
     assert_eq!(u64_of(&entries[1].entered_at) - start, 90_000);
     assert_eq!(u64_of(&entries[2].entered_at) - start, 3_600_000);
-    assert_eq!(output(&sim), json!({"a": 1}));
+    assert_eq!(output(&mut sim).await, json!({"a": 1}));
 }
 
-#[test]
-fn hidden_transitions_go_with_the_next_notification() {
+#[tokio::test]
+async fn hidden_transitions_go_with_the_next_notification() {
     let yaml = "Inputs: {}
 StartAt: A
 TimeoutSeconds: 60
@@ -382,8 +395,8 @@ States:
     Prompt: { Transition: false }
     End: true
 ";
-    let sim = run_skill(yaml, json!({}), echo());
-    let notices = sim.notices();
+    let mut sim = run_skill(yaml, json!({}), echo()).await;
+    let notices = sim.notices().await;
     assert_eq!(notices.len(), 2);
     assert_eq!(
         notices[0],
@@ -394,8 +407,8 @@ States:
     );
 }
 
-#[test]
-fn the_notification_keeps_the_end_of_long_output() {
+#[tokio::test]
+async fn the_notification_keeps_the_end_of_long_output() {
     let yaml = "Inputs: {}
 StartAt: Log
 TimeoutSeconds: 60
@@ -409,12 +422,13 @@ States:
     Type: Succeed
 ";
     let long = format!("{}END", "x".repeat(OUTPUT_TAIL_BYTES * 2));
-    let sim = run_skill(
+    let mut sim = run_skill(
         yaml,
         json!({}),
         Box::new(move |_: &Call| fails(10, 0, &long, &long)),
-    );
-    let first = &sim.notices()[0];
+    )
+    .await;
+    let first = &sim.notices().await[0];
     let stdout = first
         .split("\nstdout: ")
         .nth(1)
@@ -425,12 +439,12 @@ States:
     assert_eq!(stdout.len(), OUTPUT_TAIL_BYTES);
     assert!(stdout.ends_with("END"));
     // The StateEntry keeps the whole output.
-    let result = sim.entries(1)[0].result.clone().unwrap();
+    let result = sim.entries(1).await[0].result.clone().unwrap();
     assert_eq!(result.stdout.len(), OUTPUT_TAIL_BYTES * 2 + 3);
 }
 
-#[test]
-fn abort_closes_the_open_entry() {
+#[tokio::test]
+async fn abort_closes_the_open_entry() {
     let yaml = "Inputs: {}
 StartAt: Run
 TimeoutSeconds: 60
@@ -445,20 +459,21 @@ States:
         skills(&[("test-skill", yaml)]),
         Box::new(|_: &Call| Behavior::Hang),
         Box::new(|_, _| Vec::new()),
-    );
+    )
+    .await;
     sim.start("test-skill", json!({}));
-    sim.run_until(sim.now + 1_000);
+    sim.run_until(sim.now + 1_000).await;
     let now = sim.now;
-    sim.engine.abort(1, now).unwrap();
-    let run = sim.run_record(1).run;
+    sim.engine.abort(1, now).await.unwrap();
+    let run = sim.run_record(1).await.run;
     assert_eq!(run.status, RunStatus::Aborted);
-    assert_eq!(sim.entries(1)[0].status, EntryStatus::Aborted);
+    assert_eq!(sim.entries(1).await[0].status, EntryStatus::Aborted);
     assert!(
-        sim.notices().is_empty(),
+        sim.notices().await.is_empty(),
         "ABORTED is not sent to the thread"
     );
     // The timers of the aborted SkillRun do nothing.
     let commits = sim.engine.store.commits;
-    sim.run();
+    sim.run().await;
     assert_eq!(sim.engine.store.commits, commits);
 }

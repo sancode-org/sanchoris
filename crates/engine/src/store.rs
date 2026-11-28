@@ -149,29 +149,48 @@ pub enum StoreError {
 }
 
 /// The store of SkillRuns, StateEntries, command results, jobs and the outboxes of threads.
-pub trait Store {
-    fn commit(&mut self, tx: Transaction) -> Result<(), StoreError>;
-    fn run(&mut self, id: u64) -> Result<Option<RunRecord>, StoreError>;
-    fn runs_of_thread(&mut self, thread: &str) -> Result<Vec<RunRecord>, StoreError>;
-    fn entries(&mut self, run: u64) -> Result<Vec<Entry>, StoreError>;
+pub trait Store: Send {
+    fn commit(&mut self, tx: Transaction) -> impl Future<Output = Result<(), StoreError>> + Send;
+    fn run(
+        &mut self,
+        id: u64,
+    ) -> impl Future<Output = Result<Option<RunRecord>, StoreError>> + Send;
+    fn runs_of_thread(
+        &mut self,
+        thread: &str,
+    ) -> impl Future<Output = Result<Vec<RunRecord>, StoreError>> + Send;
+    fn entries(&mut self, run: u64) -> impl Future<Output = Result<Vec<Entry>, StoreError>> + Send;
     /// Writes the result of a command unless the key has one, and returns the one it keeps.
     fn put_exec_result(
         &mut self,
         key: ExecKey,
         output: ExecOutput,
-    ) -> Result<ExecOutput, StoreError>;
-    fn exec_result(&mut self, key: ExecKey) -> Result<Option<ExecOutput>, StoreError>;
+    ) -> impl Future<Output = Result<ExecOutput, StoreError>> + Send;
+    fn exec_result(
+        &mut self,
+        key: ExecKey,
+    ) -> impl Future<Output = Result<Option<ExecOutput>, StoreError>> + Send;
     /// The command that a transaction sent with the key.
-    fn exec_request(&mut self, key: ExecKey) -> Result<Option<ExecRequest>, StoreError>;
-    fn jobs(&mut self) -> Result<Vec<JobRecord>, StoreError>;
-    fn ack(&mut self, job: u64) -> Result<(), StoreError>;
-    fn response(&mut self, request: &str) -> Result<Option<Response>, StoreError>;
+    fn exec_request(
+        &mut self,
+        key: ExecKey,
+    ) -> impl Future<Output = Result<Option<ExecRequest>, StoreError>> + Send;
+    fn jobs(&mut self) -> impl Future<Output = Result<Vec<JobRecord>, StoreError>> + Send;
+    fn ack(&mut self, job: u64) -> impl Future<Output = Result<(), StoreError>> + Send;
+    fn response(
+        &mut self,
+        request: &str,
+    ) -> impl Future<Output = Result<Option<Response>, StoreError>> + Send;
     /// The order of the last `await` of the thread, 0 before the first.
-    fn await_order(&mut self, thread: &str) -> Result<u64, StoreError>;
+    fn await_order(&mut self, thread: &str)
+    -> impl Future<Output = Result<u64, StoreError>> + Send;
     /// The ID of the last SkillRun; a new one is the next number, and its transaction fails
     /// with a conflict when another took it.
-    fn last_run_id(&mut self) -> Result<u64, StoreError>;
-    fn messages(&mut self, thread: &str) -> Result<Vec<Message>, StoreError>;
+    fn last_run_id(&mut self) -> impl Future<Output = Result<u64, StoreError>> + Send;
+    fn messages(
+        &mut self,
+        thread: &str,
+    ) -> impl Future<Output = Result<Vec<Message>, StoreError>> + Send;
 }
 
 /// A store in memory.
@@ -192,7 +211,7 @@ pub struct MemoryStore {
 }
 
 impl Store for MemoryStore {
-    fn commit(&mut self, tx: Transaction) -> Result<(), StoreError> {
+    async fn commit(&mut self, tx: Transaction) -> Result<(), StoreError> {
         let id = tx.run.id();
         let current = self.runs.get(&id).map(|r| r.version);
         if current != tx.expected_version || (current.is_none() && id != self.last_run + 1) {
@@ -226,11 +245,11 @@ impl Store for MemoryStore {
         Ok(())
     }
 
-    fn run(&mut self, id: u64) -> Result<Option<RunRecord>, StoreError> {
+    async fn run(&mut self, id: u64) -> Result<Option<RunRecord>, StoreError> {
         Ok(self.runs.get(&id).cloned())
     }
 
-    fn runs_of_thread(&mut self, thread: &str) -> Result<Vec<RunRecord>, StoreError> {
+    async fn runs_of_thread(&mut self, thread: &str) -> Result<Vec<RunRecord>, StoreError> {
         Ok(self
             .runs
             .values()
@@ -239,7 +258,7 @@ impl Store for MemoryStore {
             .collect())
     }
 
-    fn entries(&mut self, run: u64) -> Result<Vec<Entry>, StoreError> {
+    async fn entries(&mut self, run: u64) -> Result<Vec<Entry>, StoreError> {
         Ok(self
             .entries
             .range((run, 0)..=(run, u64::MAX))
@@ -247,7 +266,7 @@ impl Store for MemoryStore {
             .collect())
     }
 
-    fn put_exec_result(
+    async fn put_exec_result(
         &mut self,
         key: ExecKey,
         output: ExecOutput,
@@ -255,15 +274,15 @@ impl Store for MemoryStore {
         Ok(self.exec_results.entry(key).or_insert(output).clone())
     }
 
-    fn exec_result(&mut self, key: ExecKey) -> Result<Option<ExecOutput>, StoreError> {
+    async fn exec_result(&mut self, key: ExecKey) -> Result<Option<ExecOutput>, StoreError> {
         Ok(self.exec_results.get(&key).cloned())
     }
 
-    fn exec_request(&mut self, key: ExecKey) -> Result<Option<ExecRequest>, StoreError> {
+    async fn exec_request(&mut self, key: ExecKey) -> Result<Option<ExecRequest>, StoreError> {
         Ok(self.exec_requests.get(&key).cloned())
     }
 
-    fn jobs(&mut self) -> Result<Vec<JobRecord>, StoreError> {
+    async fn jobs(&mut self) -> Result<Vec<JobRecord>, StoreError> {
         Ok(self
             .jobs
             .iter()
@@ -274,24 +293,24 @@ impl Store for MemoryStore {
             .collect())
     }
 
-    fn ack(&mut self, job: u64) -> Result<(), StoreError> {
+    async fn ack(&mut self, job: u64) -> Result<(), StoreError> {
         self.jobs.remove(&job);
         Ok(())
     }
 
-    fn response(&mut self, request: &str) -> Result<Option<Response>, StoreError> {
+    async fn response(&mut self, request: &str) -> Result<Option<Response>, StoreError> {
         Ok(self.responses.get(request).cloned())
     }
 
-    fn await_order(&mut self, thread: &str) -> Result<u64, StoreError> {
+    async fn await_order(&mut self, thread: &str) -> Result<u64, StoreError> {
         Ok(self.await_orders.get(thread).copied().unwrap_or(0))
     }
 
-    fn last_run_id(&mut self) -> Result<u64, StoreError> {
+    async fn last_run_id(&mut self) -> Result<u64, StoreError> {
         Ok(self.last_run)
     }
 
-    fn messages(&mut self, thread: &str) -> Result<Vec<Message>, StoreError> {
+    async fn messages(&mut self, thread: &str) -> Result<Vec<Message>, StoreError> {
         Ok(self.outboxes.get(thread).cloned().unwrap_or_default())
     }
 }
