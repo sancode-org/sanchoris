@@ -225,6 +225,20 @@ before(async () => {
 })
 
 after(async () => {
+  const pids = execFileSync(
+    "sh",
+    ["-c", `for f in ${root}/ws/*/*/agent.pid; do [ -f "$f" ] && cat "$f" && echo; done; true`],
+    {
+      encoding: "utf8",
+    },
+  )
+  for (const pid of pids.split(/\s+/).filter(Boolean)) {
+    try {
+      process.kill(Number(pid), "SIGKILL")
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error
+    }
+  }
   server?.kill("SIGTERM")
   dynamo?.kill("SIGTERM")
   if (process.env.SANCHORIS_E2E_LOG) {
@@ -295,6 +309,11 @@ void test("a thread takes its instruction, runs a skill, takes the notifications
   assert.ok(text?.includes(join(root, "ws", name, "1", "workspace")), text)
   assert.ok(text?.includes(`sanchoris/${name}`), text)
   assert.ok(transition.messages.some((m) => m.sender === "user" && m.text === "/where"))
+  await waitMessage(
+    name,
+    (m) => m.sender === "agent" && m.text.includes(`Skill where (run ${launched.runId})`),
+    "the reply of the Worker to the notice of the SkillRun of the User",
+  )
 
   // A script run from the screen leaves its result in the log of the thread.
   const ran = await gql<{ runScript: string }>(
