@@ -587,4 +587,326 @@ theorem startAt_unknown_mem_validate (d : Definition) :
       refine .inl ⟨t, by simp [hstart], ?_⟩
       simp only [hc, Bool.false_eq_true, ite_false]
 
+private theorem missingField_mem_missingOf {p q : Place} {keys fs : List String}
+    {req : List (List String)} :
+    Issue.missingField q fs ∈ missingOf p keys req ↔
+      q = p ∧ fs ∈ req ∧ fs.any keys.contains = false := by
+  simp only [missingOf, List.mem_filterMap]
+  constructor
+  · rintro ⟨fs', hfs, h⟩
+    cases hc : fs'.any keys.contains
+    · simp only [hc, Bool.false_eq_true, ite_false, Option.some.injEq, Issue.missingField.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      exact ⟨rfl, hfs, hc⟩
+    · simp [hc] at h
+  · rintro ⟨rfl, hfs, hc⟩
+    exact ⟨fs, hfs, by simp [hc]⟩
+
+private theorem eq_of_mem_zipIdx {l : List α} {x y : α × Nat} (hx : x ∈ l.zipIdx)
+    (hy : y ∈ l.zipIdx) (h : y.2 = x.2) : y = x := by
+  rw [List.mem_zipIdx_iff_getElem?] at hx hy
+  rw [h, hx] at hy
+  exact Prod.ext (Option.some.inj hy).symm h
+
+private theorem eq_of_name {l : List State} (hl : (l.map (·.name)).Nodup) {s t : State}
+    (hs : s ∈ l) (ht : t ∈ l) (h : t.name = s.name) : t = s := by
+  induction l with
+  | nil => simp at hs
+  | cons a l ih =>
+    simp only [List.map_cons, List.nodup_cons, List.mem_map, not_exists, not_and] at hl
+    rcases List.mem_cons.mp hs with hs | hs <;> rcases List.mem_cons.mp ht with ht | ht
+    · rw [hs, ht]
+    · exact absurd (hs ▸ h) (hl.1 t ht)
+    · exact absurd (ht ▸ h).symm (hl.1 s hs)
+    · exact ih hl.2 hs ht
+
+/-- The places of the issues of a State: the State, or an element of its `Choices`, `Retry` or
+`Catch`. -/
+private theorem stateMissing_place {t : State} {p : Place} {fs : List String}
+    (h : Issue.missingField p fs ∈ stateMissing t) :
+    p = .state t.name ∨ ∃ k, p = .choice t.name k ∨ p = .retrier t.name k ∨ p = .catcher t.name k := by
+  simp only [stateMissing, List.mem_flatten, List.mem_cons, List.not_mem_nil, or_false] at h
+  obtain ⟨l, hl, hm⟩ := h
+  rcases hl with rfl | rfl | rfl | rfl | rfl
+  · exact .inl (missingField_mem_missingOf.mp hm).1
+  · split at hm
+    · rcases List.mem_append.mp hm with hm | hm
+      · exact .inl (missingField_mem_missingOf.mp hm).1
+      · split at hm
+        · simp only [List.mem_singleton, Issue.missingField.injEq] at hm
+          exact .inl hm.1
+        · cases hm
+    · cases hm
+  · obtain ⟨x, _, hm⟩ := List.mem_flatMap.mp hm
+    exact .inr ⟨x.2, .inl (missingField_mem_missingOf.mp hm).1⟩
+  · obtain ⟨x, _, hm⟩ := List.mem_flatMap.mp hm
+    exact .inr ⟨x.2, .inr (.inl (missingField_mem_missingOf.mp hm).1)⟩
+  · obtain ⟨x, _, hm⟩ := List.mem_flatMap.mp hm
+    exact .inr ⟨x.2, .inr (.inr (missingField_mem_missingOf.mp hm).1)⟩
+
+/-- In a definition whose States have distinct names, an issue at a place of a State comes from
+that State. -/
+private theorem missingField_mem_missingFields {d : Definition} (hd : (names d).Nodup)
+    {s : State} (hs : s ∈ d.states) {p : Place} {fs : List String}
+    (hp : p = .state s.name ∨ ∃ k, p = .choice s.name k ∨ p = .retrier s.name k ∨
+      p = .catcher s.name k) :
+    Issue.missingField p fs ∈ missingFields d ↔ Issue.missingField p fs ∈ stateMissing s := by
+  simp only [missingFields, List.mem_append, List.mem_flatMap]
+  constructor
+  · rintro (h | ⟨t, ht, h⟩)
+    · obtain ⟨rfl, -⟩ := missingField_mem_missingOf.mp h
+      rcases hp with h | ⟨k, h | h | h⟩ <;> cases h
+    · have hn : t.name = s.name := by
+        rcases stateMissing_place h with h' | ⟨k', h' | h' | h'⟩ <;>
+          rcases hp with h'' | ⟨k, h'' | h'' | h''⟩ <;> rw [h''] at h' <;>
+          first
+            | cases h'
+            | (injection h' with h1; exact h1.symm)
+            | (injection h' with h1 h2; exact h1.symm)
+      rwa [← eq_of_name hd hs ht hn]
+  · exact fun h => .inr ⟨s, hs, h⟩
+
+/-- `missingFields` reports a group of keys of the root exactly when the root has none of them. -/
+theorem missingFields_root_iff (d : Definition) :
+    rootRequired.all (fun fs =>
+      (missingFields d).contains (.missingField .root fs) = !fs.any d.keys.contains) = true := by
+  simp only [List.all_eq_true, decide_eq_true_eq]
+  intro fs hfs
+  apply Bool.eq_iff_iff.mpr
+  simp only [List.contains_iff_mem, Bool.not_eq_true', missingFields, List.mem_append,
+    List.mem_flatMap, missingField_mem_missingOf]
+  constructor
+  · rintro (⟨-, -, h⟩ | ⟨t, -, h⟩)
+    · exact h
+    · rcases stateMissing_place h with h | ⟨k, h | h | h⟩ <;> cases h
+  · exact fun h => .inl ⟨trivial, hfs, h⟩
+
+/-- `missingFields` reports the keys missing from the root before those of the States. -/
+theorem missingFields_root_first (d : Definition) :
+    (missingOf .root d.keys rootRequired).isPrefixOf (missingFields d) = true := by
+  simp [missingFields, List.isPrefixOf_iff_prefix]
+
+/-- `missingFields` reports a State without `Type` exactly when it has no `Type`. -/
+theorem missingFields_type_iff (d : Definition) (hd : (names d).Nodup) :
+    d.states.all (fun s =>
+      (missingFields d).contains (.missingField (.state s.name) ["Type"]) =
+        !s.keys.contains "Type") = true := by
+  simp only [List.all_eq_true, decide_eq_true_eq]
+  intro s hs
+  apply Bool.eq_iff_iff.mpr
+  simp only [List.contains_iff_mem, Bool.not_eq_true']
+  rw [missingField_mem_missingFields hd hs (.inl rfl)]
+  cases ht : s.type with
+  | none => simp [stateMissing, ht, missingField_mem_missingOf, List.mem_flatMap]
+  | some t =>
+    cases t <;> simp [stateMissing, ht, missingField_mem_missingOf, List.mem_flatMap, requiredOf]
+
+/-- `missingFields` reports a group of keys that the type of a State requires exactly when the
+State has none of them. -/
+theorem missingFields_required_iff (d : Definition) (hd : (names d).Nodup) :
+    d.states.all (fun s => s.type.all fun t => (requiredOf t).all fun fs =>
+      (missingFields d).contains (.missingField (.state s.name) fs) =
+        !fs.any s.keys.contains) = true := by
+  simp only [List.all_eq_true]
+  intro s hs
+  cases ht : s.type with
+  | none => rfl
+  | some t =>
+    simp only [Option.all_some, List.all_eq_true, decide_eq_true_eq]
+    intro fs hfs
+    apply Bool.eq_iff_iff.mpr
+    simp only [List.contains_iff_mem, Bool.not_eq_true']
+    rw [missingField_mem_missingFields hd hs (.inl rfl)]
+    cases t <;> simp only [requiredOf, List.mem_cons, List.not_mem_nil, or_false] at hfs <;>
+      rcases hfs with rfl | rfl <;>
+      simp [stateMissing, ht, missingField_mem_missingOf, List.mem_flatMap, requiredOf]
+
+/-- `missingFields` reports a State without `Next` and `End` exactly when its type goes on and it
+has neither. -/
+theorem missingFields_nextOrEnd_iff (d : Definition) (hd : (names d).Nodup) :
+    d.states.all (fun s =>
+      (missingFields d).contains (.missingField (.state s.name) ["Next", "End"]) =
+        (s.type.any continues && s.next.isNone && !s.isEnd)) = true := by
+  simp only [List.all_eq_true, decide_eq_true_eq]
+  intro s hs
+  apply Bool.eq_iff_iff.mpr
+  simp only [List.contains_iff_mem]
+  rw [missingField_mem_missingFields hd hs (.inl rfl)]
+  cases ht : s.type with
+  | none => simp [stateMissing, ht, missingField_mem_missingOf, List.mem_flatMap]
+  | some t =>
+    cases t <;> simp [stateMissing, ht, missingField_mem_missingOf, List.mem_flatMap, requiredOf,
+      continues]
+
+private theorem missingField_mem_rules {l : List Rule} {mk : Nat → Place}
+    (hmk : ∀ i j, mk i = mk j → i = j) {req : List (List String)} {x : Rule × Nat}
+    (hx : x ∈ l.zipIdx) {fs : List String} :
+    Issue.missingField (mk x.2) fs ∈ l.zipIdx.flatMap (fun y => missingOf (mk y.2) y.1.keys req) ↔
+      fs ∈ req ∧ fs.any x.1.keys.contains = false := by
+  simp only [List.mem_flatMap, missingField_mem_missingOf]
+  constructor
+  · rintro ⟨y, hy, h, h'⟩
+    rwa [← eq_of_mem_zipIdx hx hy (hmk _ _ h).symm]
+  · exact fun h => ⟨x, hx, rfl, h⟩
+
+/-- The issues of a State at an element of its `Choices`, `Retry` or `Catch` are those of the
+element. -/
+private theorem rule_mem_stateMissing {t : State} {p : Place} {fs : List String}
+    (hp : ∃ k, p = .choice t.name k ∨ p = .retrier t.name k ∨ p = .catcher t.name k) :
+    Issue.missingField p fs ∈ stateMissing t ↔
+      Issue.missingField p fs ∈
+          t.choices.zipIdx.flatMap (fun x => missingOf (.choice t.name x.2) x.1.keys choiceRequired) ∨
+        Issue.missingField p fs ∈
+          t.retriers.zipIdx.flatMap (fun x => missingOf (.retrier t.name x.2) x.1.keys retrierRequired) ∨
+        Issue.missingField p fs ∈
+          t.catchers.zipIdx.flatMap (fun x => missingOf (.catcher t.name x.2) x.1.keys catcherRequired) := by
+  have hstate : p ≠ .state t.name := by
+    rintro rfl
+    rcases hp with ⟨k, h | h | h⟩ <;> cases h
+  simp only [stateMissing, List.mem_flatten, List.mem_cons, List.not_mem_nil, or_false]
+  constructor
+  · rintro ⟨l, hl, hm⟩
+    rcases hl with rfl | rfl | rfl | rfl | rfl
+    · exact absurd (missingField_mem_missingOf.mp hm).1 hstate
+    · split at hm
+      · rcases List.mem_append.mp hm with hm | hm
+        · exact absurd (missingField_mem_missingOf.mp hm).1 hstate
+        · split at hm
+          · simp only [List.mem_singleton, Issue.missingField.injEq] at hm
+            exact absurd hm.1 hstate
+          · cases hm
+      · cases hm
+    · exact .inl hm
+    · exact .inr (.inl hm)
+    · exact .inr (.inr hm)
+  · rintro (h | h | h)
+    · exact ⟨_, .inr (.inr (.inl rfl)), h⟩
+    · exact ⟨_, .inr (.inr (.inr (.inl rfl))), h⟩
+    · exact ⟨_, .inr (.inr (.inr (.inr rfl))), h⟩
+
+/-- `missingFields` reports an element of `Choices` without `Next` exactly when it has no `Next`. -/
+theorem missingFields_choice_iff (d : Definition) (hd : (names d).Nodup) :
+    d.states.all (fun s => s.choices.zipIdx.all fun x =>
+      (missingFields d).contains (.missingField (.choice s.name x.2) ["Next"]) =
+        !x.1.keys.contains "Next") = true := by
+  simp only [List.all_eq_true, decide_eq_true_eq]
+  intro s hs x hx
+  apply Bool.eq_iff_iff.mpr
+  simp only [List.contains_iff_mem, Bool.not_eq_true']
+  rw [missingField_mem_missingFields hd hs (.inr ⟨x.2, .inl rfl⟩),
+    rule_mem_stateMissing ⟨x.2, .inl rfl⟩,
+    missingField_mem_rules (mk := Place.choice s.name) (fun _ _ h => by cases h; rfl) hx]
+  simp [List.mem_flatMap, missingField_mem_missingOf, choiceRequired]
+
+/-- `missingFields` reports a group of keys of an element of `Retry` exactly when the element has
+none of them. -/
+theorem missingFields_retrier_iff (d : Definition) (hd : (names d).Nodup) :
+    d.states.all (fun s => s.retriers.zipIdx.all fun x => retrierRequired.all fun fs =>
+      (missingFields d).contains (.missingField (.retrier s.name x.2) fs) =
+        !fs.any x.1.keys.contains) = true := by
+  simp only [List.all_eq_true, decide_eq_true_eq]
+  intro s hs x hx fs hfs
+  apply Bool.eq_iff_iff.mpr
+  simp only [List.contains_iff_mem, Bool.not_eq_true']
+  rw [missingField_mem_missingFields hd hs (.inr ⟨x.2, .inr (.inl rfl)⟩),
+    rule_mem_stateMissing ⟨x.2, .inr (.inl rfl)⟩,
+    missingField_mem_rules (mk := Place.retrier s.name) (fun _ _ h => by cases h; rfl) hx]
+  simp [List.mem_flatMap, missingField_mem_missingOf, hfs]
+
+/-- `missingFields` reports a group of keys of an element of `Catch` exactly when the element has
+none of them. -/
+theorem missingFields_catcher_iff (d : Definition) (hd : (names d).Nodup) :
+    d.states.all (fun s => s.catchers.zipIdx.all fun x => catcherRequired.all fun fs =>
+      (missingFields d).contains (.missingField (.catcher s.name x.2) fs) =
+        !fs.any x.1.keys.contains) = true := by
+  simp only [List.all_eq_true, decide_eq_true_eq]
+  intro s hs x hx fs hfs
+  apply Bool.eq_iff_iff.mpr
+  simp only [List.contains_iff_mem, Bool.not_eq_true']
+  rw [missingField_mem_missingFields hd hs (.inr ⟨x.2, .inr (.inr rfl)⟩),
+    rule_mem_stateMissing ⟨x.2, .inr (.inr rfl)⟩,
+    missingField_mem_rules (mk := Place.catcher s.name) (fun _ _ h => by cases h; rfl) hx]
+  simp [List.mem_flatMap, missingField_mem_missingOf, hfs]
+
+private theorem misplaced_mem_misplacedOf {mk : String → Nat → Place} {s : State}
+    {rules : List Rule} {q : Place} :
+    Issue.misplacedStatesAll q ∈ misplacedOf mk s rules ↔
+      ∃ x ∈ rules.zipIdx, q = mk s.name x.2 ∧
+        (x.1.errorEquals.contains "States.ALL" &&
+          (x.1.errorEquals.length != 1 || x.2 + 1 != rules.length)) = true := by
+  simp only [misplacedOf, List.mem_filterMap]
+  constructor
+  · rintro ⟨x, hx, h⟩
+    split at h
+    · exact ⟨x, hx, (Issue.misplacedStatesAll.inj (Option.some.inj h)).symm, by assumption⟩
+    · cases h
+  · rintro ⟨x, hx, rfl, h⟩
+    exact ⟨x, hx, by simp only [h, ↓reduceIte]⟩
+
+private theorem statesAll_misplaced (ee : List String) (n m : Nat) :
+    (ee.contains "States.ALL" && (ee.length != 1 || n != m)) =
+      (ee.contains "States.ALL" && !(ee == ["States.ALL"] && n == m)) := by
+  rcases ee with _ | ⟨a, _ | ⟨b, l⟩⟩
+  · rfl
+  · by_cases ha : a = "States.ALL"
+    · subst ha
+      simp [bne]
+    · simp [Ne.symm ha]
+  · simp [bne]
+
+/-- `misplacedStatesAll` reports an element of `Retry` exactly when its `ErrorEquals` has
+`States.ALL` and is not `[States.ALL]` in the last element. -/
+theorem misplacedStatesAll_retrier_iff (d : Definition) (hd : (names d).Nodup) :
+    d.states.all (fun s => s.retriers.zipIdx.all fun x =>
+      (misplacedStatesAll d).contains (.misplacedStatesAll (.retrier s.name x.2)) =
+        (x.1.errorEquals.contains "States.ALL" &&
+          !(x.1.errorEquals == ["States.ALL"] && x.2 + 1 == s.retriers.length))) = true := by
+  simp only [List.all_eq_true, decide_eq_true_eq]
+  intro s hs x hx
+  rw [← statesAll_misplaced]
+  apply Bool.eq_iff_iff.mpr
+  simp only [List.contains_iff_mem, misplacedStatesAll, List.mem_flatMap, List.mem_append,
+    misplaced_mem_misplacedOf]
+  constructor
+  · rintro ⟨t, ht, ⟨y, hy, h, hc⟩ | ⟨y, hy, h, hc⟩⟩
+    · injection h with h1 h2
+      obtain rfl := eq_of_name hd hs ht h1.symm
+      obtain rfl := eq_of_mem_zipIdx hx hy h2.symm
+      exact hc
+    · cases h
+  · exact fun h => ⟨s, hs, .inl ⟨x, hx, rfl, h⟩⟩
+
+/-- `misplacedStatesAll` reports an element of `Catch` exactly when its `ErrorEquals` has
+`States.ALL` and is not `[States.ALL]` in the last element. -/
+theorem misplacedStatesAll_catcher_iff (d : Definition) (hd : (names d).Nodup) :
+    d.states.all (fun s => s.catchers.zipIdx.all fun x =>
+      (misplacedStatesAll d).contains (.misplacedStatesAll (.catcher s.name x.2)) =
+        (x.1.errorEquals.contains "States.ALL" &&
+          !(x.1.errorEquals == ["States.ALL"] && x.2 + 1 == s.catchers.length))) = true := by
+  simp only [List.all_eq_true, decide_eq_true_eq]
+  intro s hs x hx
+  rw [← statesAll_misplaced]
+  apply Bool.eq_iff_iff.mpr
+  simp only [List.contains_iff_mem, misplacedStatesAll, List.mem_flatMap, List.mem_append,
+    misplaced_mem_misplacedOf]
+  constructor
+  · rintro ⟨t, ht, ⟨y, hy, h, hc⟩ | ⟨y, hy, h, hc⟩⟩
+    · cases h
+    · injection h with h1 h2
+      obtain rfl := eq_of_name hd hs ht h1.symm
+      obtain rfl := eq_of_mem_zipIdx hx hy h2.symm
+      exact hc
+  · exact fun h => ⟨s, hs, .inr ⟨x, hx, rfl, h⟩⟩
+
+/-- `misplacedStatesAll` reports the elements of the `Retry` of a State before those of its
+`Catch`. -/
+theorem misplacedStatesAll_retry_before_catch (d : Definition) :
+    d.states.all (fun s =>
+      (misplacedOf .retrier s s.retriers ++ misplacedOf .catcher s s.catchers).isSublist
+        (misplacedStatesAll d)) = true := by
+  simp only [List.all_eq_true, List.isSublist_iff_sublist]
+  intro s hs
+  simp only [misplacedStatesAll, List.flatMap_def]
+  exact List.sublist_flatten_of_mem (List.mem_map_of_mem hs)
+
 end Sanchoris.SkillDefinition
