@@ -945,12 +945,20 @@ fn exec_result_draft(user: &str, key: ExecKey, output: &ExecOutput) -> Draft {
 }
 
 impl Store for DynamoStore {
+    /// A failed condition of the SkillRun is a conflict. A failed condition of a count shared
+    /// with other writes (the jobs of the User, the outbox of the thread) reads the count again
+    /// and writes again.
     async fn commit(&mut self, tx: Transaction) -> Result<(), StoreError> {
         let id = tx.run.id();
-        self.write(&tx).await.map(|_| ()).map_err(|e| match e {
-            DbError::Condition { .. } | DbError::Conflict => StoreError::Conflict(id),
-            _ => StoreError::Unavailable,
-        })
+        for _ in 0..20 {
+            match self.write(&tx).await {
+                Ok(_) => return Ok(()),
+                Err(DbError::Condition { index: 0 }) => return Err(StoreError::Conflict(id)),
+                Err(DbError::Condition { .. } | DbError::Conflict) => continue,
+                Err(_) => return Err(StoreError::Unavailable),
+            }
+        }
+        Err(StoreError::Conflict(id))
     }
 
     async fn run(&mut self, id: u64) -> Result<Option<RunRecord>, StoreError> {

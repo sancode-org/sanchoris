@@ -217,9 +217,7 @@ pub fn item_of<T: Serialize>(key: &Key, kind: &str, value: &T) -> Result<Item, D
                 "{kind} has the key attribute {name}"
             )));
         }
-        if !value.is_null() {
-            item.insert(name, to_attribute(&value));
-        }
+        item.insert(name, to_attribute(&value));
     }
     Ok(item)
 }

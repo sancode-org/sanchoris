@@ -466,3 +466,99 @@ async fn stopping_a_thread_stops_its_subagent_children_and_not_its_forks() {
     );
     assert_eq!(read_user(&db, &u).await.running_workspaces, 1);
 }
+
+/// Starts a SkillRun whose command runs until it is stopped, in a thread of a User.
+async fn hanging_run(db: &sanchoris_core::db::Db, blobs: &Blobs, u: &str, thread: &str) {
+    use sanchoris_engine::{Engine, Origin, StartRequest};
+    let source = json!({
+        "StartAt": "Run",
+        "TimeoutSeconds": 3600,
+        "States": {"Run": {"Type": "Command", "Run": "sleep 1000", "TimeoutSeconds": 600, "End": true}}
+    });
+    let definition = sanchoris_engine::definition("hang", &source).unwrap();
+    let mut engine = Engine::new(sanchoris_core::engine_store::DynamoStore::new(
+        db.clone(),
+        blobs.clone(),
+        u,
+    ));
+    engine
+        .start(
+            StartRequest {
+                request: format!("start-{thread}"),
+                thread: thread.into(),
+                origin: Origin::Thread,
+                definition,
+                source,
+                input: json!({}),
+            },
+            NOW,
+        )
+        .await
+        .unwrap();
+}
+
+async fn run_status(db: &sanchoris_core::db::Db, blobs: &Blobs, u: &str, thread: &str) -> String {
+    use sanchoris_engine::Store;
+    let mut store = sanchoris_core::engine_store::DynamoStore::new(db.clone(), blobs.clone(), u);
+    let runs = store.runs_of_thread(thread).await.unwrap();
+    sanchoris_engine::engine::status_name(&runs[0].run.status).to_string()
+}
+
+#[tokio::test]
+async fn a_thread_with_a_running_skill_run_waits_and_its_stop_aborts_the_run() {
+    let db = db().await;
+    let blobs = Blobs::memory();
+    let u = user(&db, "max").await;
+    create(&db, &u, &new_thread("th_run")).await;
+    start_pending(&db, &u, "th_run", NOW).await.unwrap();
+    for e in [Event::WorkspaceReady, Event::TurnStarted] {
+        thread::apply(&db, &blobs, &u, "th_run", e, NOW)
+            .await
+            .unwrap();
+    }
+    hanging_run(&db, &blobs, &u, "th_run").await;
+    thread::apply(&db, &blobs, &u, "th_run", Event::TurnEnded, NOW)
+        .await
+        .unwrap();
+    let t = read_thread(&db, &u, "th_run").await;
+    assert_eq!(
+        (t.status, t.wait_reason),
+        (ThreadStatus::Waiting, Some(WaitReason::Skill))
+    );
+    thread::stop(&db, &blobs, &u, "th_run", NOW).await.unwrap();
+    assert_eq!(run_status(&db, &blobs, &u, "th_run").await, "ABORTED");
+    assert_eq!(read_user(&db, &u).await.running_workspaces, 0);
+}
+
+#[tokio::test]
+async fn a_stop_that_ended_after_its_first_write_ends_the_same_when_it_runs_again() {
+    let db = db().await;
+    let blobs = Blobs::memory();
+    let u = user(&db, "max").await;
+    create(&db, &u, &new_thread("th_half")).await;
+    let mut child = new_thread("th_half_kid");
+    child.parent = Some(("th_half".into(), Lineage::Subagent, None));
+    create(&db, &u, &child).await;
+    for name in ["th_half", "th_half_kid"] {
+        start_pending(&db, &u, name, NOW).await.unwrap();
+    }
+    hanging_run(&db, &blobs, &u, "th_half").await;
+    // The stop wrote the thread ABORTED with its Workspace stopped, and ended before its
+    // SkillRun and its child.
+    set(&db, &u, "th_half", |t| t.status = ThreadStatus::Aborted).await;
+    assert!(
+        thread::release_workspace(&db, &u, "th_half", 1, "thread stopped", NOW)
+            .await
+            .unwrap()
+    );
+    assert_eq!(read_user(&db, &u).await.running_workspaces, 1);
+    assert_eq!(run_status(&db, &blobs, &u, "th_half").await, "RUNNING");
+    thread::stop(&db, &blobs, &u, "th_half", NOW).await.unwrap();
+    thread::stop(&db, &blobs, &u, "th_half", NOW).await.unwrap();
+    assert_eq!(run_status(&db, &blobs, &u, "th_half").await, "ABORTED");
+    assert_eq!(
+        read_thread(&db, &u, "th_half_kid").await.status,
+        ThreadStatus::Aborted
+    );
+    assert_eq!(read_user(&db, &u).await.running_workspaces, 0);
+}
