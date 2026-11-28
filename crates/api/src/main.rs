@@ -2,13 +2,18 @@ use std::env;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
+use sanchoris_api::local::{Settings, start};
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr: SocketAddr = required_env("SANCHORIS_BIND_ADDR")?.parse()?;
+    let bind = required_env("SANCHORIS_BIND_ADDR")?;
+    let addr: SocketAddr = bind.parse()?;
     let frontend_dir = PathBuf::from(required_env("SANCHORIS_FRONTEND_DIR")?);
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    eprintln!("sanchoris: listening on http://{}", listener.local_addr()?);
-    axum::serve(listener, sanchoris_api::router(&frontend_dir))
+    let local = listener.local_addr()?;
+    let app = start(Settings::from_env(&local.to_string())?).await?;
+    eprintln!("sanchoris: listening on http://{local}");
+    axum::serve(listener, sanchoris_api::router(&frontend_dir, Some(app)))
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;
         })

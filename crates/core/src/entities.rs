@@ -206,6 +206,16 @@ pub struct Credential {
     /// `connected` or `reconnect`.
     pub state: String,
     pub last_used_at: Option<u64>,
+    /// The form of the secret, as `sanchoris-agent` takes it (`claude_oauth_token`,
+    /// `claude_credentials_json`, `anthropic_api_key`, `codex_auth_json`, `openai_api_key`).
+    #[serde(default)]
+    pub secret_kind: Option<String>,
+    /// The secret sealed with `SANCHORIS_CREDENTIAL_KEY` (`crate::secret`).
+    #[serde(default)]
+    pub secret: Option<String>,
+    /// Goes up by one with each write of the secret.
+    #[serde(default)]
+    pub version: u64,
 }
 
 impl Entity for Credential {
@@ -525,6 +535,9 @@ pub struct Thread {
     pub counted: bool,
     /// The inputs that wait for the thread to take them (`skill.md`「スレッドへの入力」).
     pub queued: Vec<Value>,
+    /// The last thread record that `sanchoris-agent` saved (`thread_record`).
+    #[serde(default)]
+    pub record: Option<ThreadRecord>,
     /// Goes up by one with each write; a write is made only over the version it read.
     pub version: u64,
 }
@@ -534,6 +547,16 @@ impl Entity for Thread {
     fn key(&self, user: &str) -> Key {
         keys::thread(user, &self.name)
     }
+}
+
+/// A thread record in S3: the provider's state directory at the end of a turn.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ThreadRecord {
+    pub turn: u64,
+    pub session: String,
+    pub key: String,
+    pub sha256: String,
+    pub bytes: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -599,6 +622,19 @@ pub struct Workspace {
     pub stop_reason: Option<String>,
     pub exit_code: Option<i64>,
     pub repositories: Vec<ClonedRepository>,
+    /// The last `seq` of the outbox of the thread when the Workspace was made; the Workspace
+    /// gets the messages after it.
+    #[serde(default)]
+    pub outbox_from: u64,
+    /// The connection of the Thread channel of the Workspace.
+    #[serde(default)]
+    pub connection: Option<String>,
+    /// The `instanceId` of the `sanchoris-agent` on the connection.
+    #[serde(default)]
+    pub instance: Option<String>,
+    /// The last `seq` of the outbox sent on the connection.
+    #[serde(default)]
+    pub sent: u64,
 }
 
 impl Entity for Workspace {

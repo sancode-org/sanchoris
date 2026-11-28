@@ -7,3 +7,19 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+aws-sdk-dynamodb.workspace = true
+aws-sdk-dynamodbstreams.workspace = true
+flate2 = "1"
+leanfran.workspace = true
+sanchoris-core = { path = "../core" }
+sanchoris-engine = { path = "../engine" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tar = "0.4"
+thiserror.workspace = true
+tokio = { workspace = true, features = ["time", "sync", "process", "fs", "io-util"] }
+
+[dev-dependencies]
+sanchoris-config = { path = "../config" }
+tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread"] }

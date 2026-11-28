@@ -1,0 +1,11 @@
+Inputs: {}
+StartAt: Where
+TimeoutSeconds: 300
+States:
+  Where:
+    Type: Command
+    Run: "pwd && git -C app rev-parse --abbrev-ref HEAD"
+    TimeoutSeconds: 60
+    Next: Done
+  Done:
+    Type: Succeed

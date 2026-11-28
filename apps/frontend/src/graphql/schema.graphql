@@ -1,0 +1,167 @@
+"""
+A line of the log of a thread: a message of `sanchoris-agent`, as JSON.
+"""
+type LogLine {
+	at: String!
+	"""
+	The type of the message (`event`, `script_result`, `rate_limit`, `stopping`).
+	"""
+	type: String!
+	data: String!
+}
+
+"""
+A Message of a thread.
+"""
+type Message {
+	seq: Int!
+	"""
+	`user`, `parent`, `agent` or `sanchoris`.
+	"""
+	sender: String!
+	text: String!
+	at: String!
+}
+
+type Mutation {
+	"""
+	Starts a thread in a Project with its first message (New thread).
+	"""
+	startThread(project: String!, message: String!): Thread!
+	"""
+	Sends a message to a thread: `/compact`, `/<Skill> [input]`, or a message.
+	"""
+	sendMessage(thread: String!, text: String!): SendResult!
+	"""
+	Runs a script of the Project in the Workspace of the thread; its result goes to the log
+	of the thread. Returns the ID of the run of the script.
+	"""
+	runScript(thread: String!, name: String!): String!
+	"""
+	Stops a thread: it becomes `ABORTED` with its SkillRuns and `subagent` children.
+	"""
+	stopThread(name: String!): Thread!
+}
+
+type Project {
+	name: String!
+	scripts: [String!]!
+}
+
+type Query {
+	threads: [Thread!]!
+	thread(name: String!): Thread
+	projects: [Project!]!
+}
+
+"""
+What a message did: the input went into the turn (`steered`), waits (`queued`), started a
+turn (`started_turn`), waits for the Workspace to be restored (`restoring`), launched a
+Skill (`launched`, with `runId`), or compacts (`compact`).
+"""
+type SendResult {
+	delivery: String!
+	runId: Int
+}
+
+type SkillRun {
+	id: Int!
+	skill: String!
+	"""
+	`thread` or `user`.
+	"""
+	origin: String!
+	"""
+	`RUNNING`, `WAITING`, `SUCCEEDED`, `FAILED` or `ABORTED`.
+	"""
+	status: String!
+	"""
+	The `Output`, as JSON.
+	"""
+	output: String
+	error: String
+	cause: String
+	"""
+	The parent SkillRun, its State and the entry of the State.
+	"""
+	parentRun: Int
+	parentState: String
+	parentEntry: Int
+}
+
+type Thread {
+	name: String!
+	title: String!
+	project: String!
+	status: ThreadStatus!
+	pendingReason: String
+	waitReason: String
+	error: String
+	cause: String
+	branch: String!
+	startedAt: String!
+	updatedAt: String!
+	messages: [Message!]!
+	turns: [Turn!]!
+	workspaces: [Workspace!]!
+	skillRuns: [SkillRun!]!
+	log: [LogLine!]!
+}
+
+enum ThreadStatus {
+	PENDING
+	RUNNING
+	WAITING
+	NEEDS_YOU
+	SUCCEEDED
+	ABORTED
+}
+
+type Turn {
+	seq: Int!
+	startedAt: String!
+	endedAt: String
+	"""
+	`completed`, `failed` or `interrupted`.
+	"""
+	result: String
+	commits: [TurnCommit!]!
+	"""
+	The key of the thread record at the end of the turn.
+	"""
+	recordVersion: String
+}
+
+type TurnCommit {
+	repository: String!
+	commit: String!
+}
+
+type Workspace {
+	seq: Int!
+	"""
+	`cloud` or the name of a Host.
+	"""
+	target: String!
+	"""
+	`starting`, `running` or `stopped`.
+	"""
+	state: String!
+	startedAt: String!
+	stoppedAt: String
+	stopReason: String
+	exitCode: Int
+}
+
+"""
+Directs the executor to include this field or fragment only when the `if` argument is true.
+"""
+directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+"""
+Directs the executor to skip this field or fragment when the `if` argument is true.
+"""
+directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+schema {
+	query: Query
+	mutation: Mutation
+}

@@ -241,6 +241,7 @@ pub fn new_thread(t: &NewThread, now: u64) -> Thread {
         messages: 1,
         counted: false,
         queued: vec![json!({"id": format!("{}-1", t.name), "source": "person", "text": t.message})],
+        record: None,
         version: 0,
     }
 }
@@ -317,7 +318,8 @@ pub enum Started {
     },
     Pending(PendingReason),
     NeedsYou(String),
-    /// The thread was not `PENDING` (a second delivery of the job, or a stopped thread).
+    /// The thread was not `PENDING` (a second delivery of the job, or a stopped thread), or a
+    /// thread to restore has its Workspace.
     Unchanged(ThreadStatus),
 }
 
@@ -330,6 +332,22 @@ fn placement_name(p: &Placement) -> String {
     }
 }
 
+/// The job that asks the workspace-supervisor to restore the Workspace of a thread.
+pub fn restore_job(thread: &str) -> String {
+    format!("restore#{thread}")
+}
+
+/// Whether the last Workspace of a thread runs or starts.
+pub async fn has_workspace(db: &Db, user: &str, t: &Thread) -> Result<bool, DbError> {
+    if t.workspaces == 0 {
+        return Ok(false);
+    }
+    Ok(db
+        .entity::<Workspace>(&keys::workspace(user, &t.name, t.workspaces))
+        .await?
+        .is_some_and(|w| w.state != "stopped"))
+}
+
 /// The thread-starter: decides the start of a `PENDING` thread with `decideStart`, and writes
 /// in one transaction the thread, the counters of the User (the threads of the period and the
 /// cloud Workspaces, under their limits) or of the Host, the new Workspace and the end of the
@@ -340,10 +358,39 @@ pub async fn start_pending(
     name: &str,
     now: u64,
 ) -> Result<Started, ThreadError> {
+    start_workspace(db, user, name, now, false).await
+}
+
+/// The workspace-supervisor restores the Workspace of a thread whose Workspace was removed,
+/// when an input or a command comes (`README.md`「Workspace」): the same decision as the start,
+/// over the counted thread. Without room the thread becomes `PENDING` and the thread-starter
+/// starts it later.
+pub async fn restore(db: &Db, user: &str, name: &str, now: u64) -> Result<Started, ThreadError> {
+    start_workspace(db, user, name, now, true).await
+}
+
+async fn start_workspace(
+    db: &Db,
+    user: &str,
+    name: &str,
+    now: u64,
+    restoring: bool,
+) -> Result<Started, ThreadError> {
+    let job_id = if restoring {
+        restore_job(name)
+    } else {
+        start_job(name)
+    };
     for _ in 0..ATTEMPTS {
         let mut t = read_thread(db, user, name).await?;
-        let job = keys::job(user, &start_job(name));
-        if t.status != ThreadStatus::Pending {
+        let job = keys::job(user, &job_id);
+        let unchanged = if restoring {
+            matches!(t.status, ThreadStatus::Pending | ThreadStatus::Aborted)
+                || has_workspace(db, user, &t).await?
+        } else {
+            t.status != ThreadStatus::Pending
+        };
+        if unchanged {
             let mut tx = db.tx(user);
             tx.delete(&job, None)?;
             tx.commit().await?;
@@ -385,6 +432,7 @@ pub async fn start_pending(
             },
         };
         let decision = lean::decide_start(demand, placement);
+        let outbox_from = outbox::last_seq(db, user, name).await?;
         let version = t.version;
         t.version += 1;
         t.updated_at = now;
@@ -392,12 +440,14 @@ pub async fn start_pending(
         let outcome = match &decision {
             lean::Start::Start { placement } => {
                 let first = !t.counted;
-                set_state(
-                    &mut t,
-                    &lean::State::Running {
-                        turn: lean::Turn::Preparing,
-                    },
-                );
+                if !restoring {
+                    set_state(
+                        &mut t,
+                        &lean::State::Running {
+                            turn: lean::Turn::Preparing,
+                        },
+                    );
+                }
                 t.counted = true;
                 t.workspaces += 1;
                 let mut change = Change::new().when(Cond::exists());
@@ -442,6 +492,10 @@ pub async fn start_pending(
                     stop_reason: None,
                     exit_code: None,
                     repositories: Vec::new(),
+                    outbox_from,
+                    connection: None,
+                    instance: None,
+                    sent: outbox_from,
                 })?;
                 Started::Running {
                     workspace: t.workspaces,
@@ -449,7 +503,13 @@ pub async fn start_pending(
                 }
             }
             lean::Start::Pending { reason } => {
-                set_state(&mut t, &lean::State::Pending { reason: *reason });
+                let state = if restoring {
+                    let ctx = context(db, user, &t).await?;
+                    lean::step(state_of(&t), lean::Event::NoRoom { reason: *reason }, ctx)
+                } else {
+                    lean::State::Pending { reason: *reason }
+                };
+                set_state(&mut t, &state);
                 Started::Pending(pending_of(reason))
             }
             lean::Start::NeedsYou { error } => {
@@ -500,6 +560,32 @@ pub async fn context(db: &Db, user: &str, t: &Thread) -> Result<lean::Context, T
     })
 }
 
+/// Writes that go into the transaction of a change of a thread, over the thread it changes.
+pub type Extra<'a> =
+    &'a (dyn Fn(&mut Thread, &mut crate::db::UserTx) -> Result<(), DbError> + Sync);
+
+/// Makes a change once: the key is written in the same transaction under the condition that it
+/// does not exist, and a change whose key exists is a duplicate.
+#[derive(Debug, Clone, Copy)]
+pub struct Once<'a> {
+    pub key: &'a crate::db::Key,
+}
+
+async fn is_duplicate(db: &Db, once: Option<Once<'_>>) -> Result<bool, DbError> {
+    match once {
+        Some(o) => Ok(db.get(o.key).await?.is_some()),
+        None => Ok(false),
+    }
+}
+
+fn mark_once(tx: &mut crate::db::UserTx, once: Option<Once<'_>>, now: u64) -> Result<(), DbError> {
+    if let Some(o) = once {
+        let item = crate::db::item_of(o.key, "mark", &json!({"at": now}))?;
+        tx.put(o.key.table, item, Some(Cond::not_exists()))?;
+    }
+    Ok(())
+}
+
 /// Applies an event to a thread with `step` and writes it over the version it read. A thread
 /// that asks for a turn (it becomes `RUNNING` with its turn asked for, or its Workspace is
 /// ready) sends the inputs that waited as the input of the turn. The stop goes through
@@ -512,11 +598,31 @@ pub async fn apply(
     event: lean::Event,
     now: u64,
 ) -> Result<lean::State, ThreadError> {
+    apply_with(db, blobs, user, name, event, now, None, None)
+        .await
+        .map(|a| a.unwrap_or(lean::State::Aborted))
+}
+
+/// [`apply`] with more writes in its transaction; `None` when `once` was written before.
+#[allow(clippy::too_many_arguments)]
+pub async fn apply_with(
+    db: &Db,
+    blobs: &crate::blob::Blobs,
+    user: &str,
+    name: &str,
+    event: lean::Event,
+    now: u64,
+    extra: Option<Extra<'_>>,
+    once: Option<Once<'_>>,
+) -> Result<Option<lean::State>, ThreadError> {
     if event == lean::Event::Stop {
         stop(db, blobs, user, name, now).await?;
-        return Ok(lean::State::Aborted);
+        return Ok(Some(lean::State::Aborted));
     }
     for _ in 0..ATTEMPTS {
+        if is_duplicate(db, once).await? {
+            return Ok(None);
+        }
         let mut t = read_thread(db, user, name).await?;
         let ctx = context(db, user, &t).await?;
         let before = state_of(&t);
@@ -528,14 +634,18 @@ pub async fn apply(
             }
         ) && !t.queued.is_empty()
             && (after != before || event == lean::Event::WorkspaceReady);
-        if after == before && !asks_turn {
-            return Ok(after);
+        if after == before && !asks_turn && extra.is_none() && once.is_none() {
+            return Ok(Some(after));
         }
         let version = t.version;
         set_state(&mut t, &after);
         t.version += 1;
         t.updated_at = now;
         let mut tx = db.tx(user);
+        if let Some(extra) = extra {
+            extra(&mut t, &mut tx)?;
+        }
+        mark_once(&mut tx, once, now)?;
         let mut bodies = Vec::new();
         if asks_turn {
             bodies.push(input_message(name, &t.queued, "turn"));
@@ -549,10 +659,13 @@ pub async fn apply(
         tx.put_entity(&t, Some(Cond::eq("version", n(version))))?;
         outbox::append(&mut tx, name, last, &bodies)?;
         match tx.commit().await {
-            Ok(()) => return Ok(after),
+            Ok(()) => return Ok(Some(after)),
             Err(DbError::Condition { .. } | DbError::Conflict) => continue,
             Err(e) => return Err(e.into()),
         }
+    }
+    if is_duplicate(db, once).await? {
+        return Ok(None);
     }
     Err(ThreadError::Busy(name.to_string()))
 }
@@ -582,6 +695,10 @@ pub enum Delivered {
     StartedTurn,
     /// An input of sanchoris to an `ABORTED` thread, which is not sent.
     Dropped,
+    /// The thread has no Workspace: the input waits, and the Workspace is restored.
+    Restoring,
+    /// The input was delivered before.
+    Duplicate,
 }
 
 /// Delivers an input to a thread (`skill.md`「スレッドへの入力」) with `deliver`: into the running
@@ -595,15 +712,40 @@ pub async fn send_input(
     input: Value,
     now: u64,
 ) -> Result<Delivered, ThreadError> {
+    send_input_with(db, user, name, source, input, now, None, None).await
+}
+
+/// [`send_input`] with more writes in its transaction. An input that goes to a thread whose
+/// Workspace was removed waits, and the same transaction asks to restore the Workspace.
+#[allow(clippy::too_many_arguments)]
+pub async fn send_input_with(
+    db: &Db,
+    user: &str,
+    name: &str,
+    source: lean::Source,
+    input: Value,
+    now: u64,
+    extra: Option<Extra<'_>>,
+    once: Option<Once<'_>>,
+) -> Result<Delivered, ThreadError> {
     for _ in 0..ATTEMPTS {
+        if is_duplicate(db, once).await? {
+            return Ok(Delivered::Duplicate);
+        }
         let mut t = read_thread(db, user, name).await?;
         let state = state_of(&t);
         let delivery = lean::deliver(state.clone(), source);
         let version = t.version;
         let mut bodies = Vec::new();
+        let sends = matches!(delivery, lean::Delivery::Steer | lean::Delivery::StartTurn);
+        let restoring = sends && !has_workspace(db, user, &t).await?;
         let outcome = match delivery {
             lean::Delivery::Reject => return Err(ThreadError::Aborted(name.to_string())),
             lean::Delivery::Drop => return Ok(Delivered::Dropped),
+            lean::Delivery::Steer if restoring => {
+                t.queued.push(input.clone());
+                Delivered::Restoring
+            }
             lean::Delivery::Steer => {
                 bodies.push(input_message(name, std::slice::from_ref(&input), "steer"));
                 Delivered::Steered
@@ -617,9 +759,13 @@ pub async fn send_input(
                 let after = lean::step(state, lean::Event::Input { source }, ctx);
                 set_state(&mut t, &after);
                 t.queued.push(input.clone());
-                bodies.push(input_message(name, &t.queued, "turn"));
-                t.queued.clear();
-                Delivered::StartedTurn
+                if restoring {
+                    Delivered::Restoring
+                } else {
+                    bodies.push(input_message(name, &t.queued, "turn"));
+                    t.queued.clear();
+                    Delivered::StartedTurn
+                }
             }
         };
         t.version += 1;
@@ -630,6 +776,17 @@ pub async fn send_input(
             outbox::last_seq(db, user, name).await?
         };
         let mut tx = db.tx(user);
+        if let Some(extra) = extra {
+            extra(&mut t, &mut tx)?;
+        }
+        mark_once(&mut tx, once, now)?;
+        if restoring {
+            insert_job(
+                &mut tx,
+                &restore_job(name),
+                json!({"type": "thread.restore", "thread": name}),
+            )?;
+        }
         tx.put_entity(&t, Some(Cond::eq("version", n(version))))?;
         outbox::append(&mut tx, name, last, &bodies)?;
         match tx.commit().await {
@@ -637,6 +794,9 @@ pub async fn send_input(
             Err(DbError::Condition { .. } | DbError::Conflict) => continue,
             Err(e) => return Err(e.into()),
         }
+    }
+    if is_duplicate(db, once).await? {
+        return Ok(Delivered::Duplicate);
     }
     Err(ThreadError::Busy(name.to_string()))
 }

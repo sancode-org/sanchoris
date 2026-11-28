@@ -88,6 +88,7 @@
               ./Cargo.toml
               ./Cargo.lock
               ./crates
+              ./infra
             ];
           };
           rustPackage =
@@ -100,6 +101,7 @@
                 "-p"
                 package
               ];
+              preBuild = "unset AWS_LC_SYS_USE_SYSTEM";
               doCheck = false;
             };
           server = rustPackage "sanchoris-server" "sanchoris-api";
@@ -154,6 +156,7 @@
             name = "sanchoris";
             runtimeInputs = [
               nodejs
+              pkgs.coreutils
               pkgs.dynamodb-local
             ];
             text = ''
@@ -179,6 +182,13 @@
               export AWS_ACCESS_KEY_ID=local
               export AWS_SECRET_ACCESS_KEY=local
               export AWS_ENDPOINT_URL_DYNAMODB="http://127.0.0.1:$dynamo_port"
+              export AWS_ENDPOINT_URL_DYNAMODB_STREAMS="http://127.0.0.1:$dynamo_port"
+              export SANCHORIS_TABLE_MAIN="''${SANCHORIS_TABLE_MAIN:-main}"
+              export SANCHORIS_TABLE_AUDIT="''${SANCHORIS_TABLE_AUDIT:-audit}"
+              export SANCHORIS_LOCAL_USER="''${SANCHORIS_LOCAL_USER:-local}"
+              THREAD_TOKEN_SIGNING_KEY="''${THREAD_TOKEN_SIGNING_KEY:-$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')}"
+              SANCHORIS_CREDENTIAL_KEY="''${SANCHORIS_CREDENTIAL_KEY:-$(head -c 32 /dev/urandom | base64)}"
+              export THREAD_TOKEN_SIGNING_KEY SANCHORIS_CREDENTIAL_KEY
               export SANCHORIS_BIND_ADDR="''${SANCHORIS_BIND_ADDR:-127.0.0.1:8080}"
               export SANCHORIS_FRONTEND_DIR=${web}/share/sanchoris/frontend
 

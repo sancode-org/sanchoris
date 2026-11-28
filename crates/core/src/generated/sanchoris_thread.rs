@@ -5,6 +5,159 @@ use ::leanfran::runtime as rt;
 use rt::Obj;
 
 #[allow(dead_code, non_snake_case, unused_mut, unused_assignments, unused_variables, unreachable_code, unused_unsafe, clippy::all)]
+pub(crate) unsafe fn l_Sanchoris_Thread_command(mut x_1: Obj, mut x_2: u8, mut x_3: Obj) -> Obj {
+let mut x_4: Obj = rt::lean_box(0);
+let mut x_5: Obj = rt::lean_box(0);
+let mut x_7: Obj = rt::lean_box(0);
+let mut x_8: u8 = 0;
+let mut x_10: u8 = 0;
+let mut x_11: Obj = rt::lean_box(0);
+let mut x_13: Obj = rt::lean_box(0);
+let mut x_14: Obj = rt::lean_box(0);
+let mut x_15: Obj = rt::lean_box(0);
+let mut x_16: u8 = 0;
+let mut x_17: Obj = rt::lean_box(0);
+let mut x_18: u8 = 0;
+let mut __blk: u32 = 0;
+'body: loop { match __blk {
+0 => {
+match rt::lean_obj_tag(x_1) {
+0 => {
+x_4 = rt::lean_box(2);
+return x_4;
+}
+1 => {
+x_5 = rt::lean_ctor_get(x_1, 0);
+x_18 = (!rt::lean_is_exclusive(x_1)) as u8;
+match x_18 as u32 {
+0 => {
+{ let t_0 = x_1; let t_1 = x_18; x_7 = t_0; x_8 = t_1; }
+__blk = 1; continue 'body;
+}
+1 => {
+rt::lean_inc(x_5);
+rt::lean_dec(x_1);
+{ let t_0 = rt::lean_box(0); let t_1 = x_18; x_7 = t_0; x_8 = t_1; }
+__blk = 1; continue 'body;
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+1 => {
+x_15 = l_Sanchoris_Thread_command___closed__0();
+x_16 = rt::lean_string_dec_eq(x_5, x_15);
+match x_16 as u32 {
+0 => {
+{ }
+__blk = 2; continue 'body;
+}
+1 => {
+match x_2 as u32 {
+0 => {
+rt::lean_del_object(x_7);
+rt::lean_dec(x_5);
+x_17 = rt::lean_box(0);
+return x_17;
+}
+1 => {
+{ }
+__blk = 2; continue 'body;
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+2 => {
+x_10 = l_List_elem___at___00Sanchoris_Thread_command_spec__0(x_5, x_3);
+match x_10 as u32 {
+0 => {
+rt::lean_del_object(x_7);
+rt::lean_dec(x_5);
+x_11 = rt::lean_box(2);
+return x_11;
+}
+1 => {
+match x_8 as u32 {
+0 => {
+{ let t_0 = x_7; x_13 = t_0; }
+__blk = 3; continue 'body;
+}
+1 => {
+x_14 = rt::lean_alloc_ctor(1, 1, 0 * core::mem::size_of::<usize>() as u32 + 0); rt::lean_ctor_set(x_14, 0, x_5);
+{ let t_0 = x_14; x_13 = t_0; }
+__blk = 3; continue 'body;
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+3 => {
+return x_13;
+}
+_ => rt::lean_internal_panic_unreachable(),
+} }
+}
+
+#[allow(dead_code, non_snake_case, unused_mut, unused_assignments, unused_variables, unreachable_code, unused_unsafe, clippy::all)]
+pub(crate) unsafe fn l_List_elem___at___00Sanchoris_Thread_command_spec__0(mut x_1: Obj, mut x_2: Obj) -> u8 {
+let mut x_3: u8 = 0;
+let mut x_4: Obj = rt::lean_box(0);
+let mut x_5: Obj = rt::lean_box(0);
+let mut x_6: u8 = 0;
+let mut x_7: u8 = 0;
+let mut __blk: u32 = 0;
+'body: loop { match __blk {
+0 => {
+match rt::lean_obj_tag(x_2) {
+0 => {
+x_3 = 0u8;
+return x_3;
+}
+1 => {
+x_4 = rt::lean_ctor_get(x_2, 0);
+x_5 = rt::lean_ctor_get(x_2, 1);
+x_6 = rt::lean_string_dec_eq(x_1, x_4);
+match x_6 as u32 {
+0 => {
+{ let t_0 = x_1; let t_1 = x_5; x_1 = t_0; x_2 = t_1; }
+__blk = 0; continue 'body;
+}
+1 => {
+return x_6;
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+_ => rt::lean_internal_panic_unreachable(),
+}
+}
+_ => rt::lean_internal_panic_unreachable(),
+} }
+}
+
+
+#[allow(dead_code, non_snake_case, unused_mut, unused_assignments, unused_variables, unreachable_code, clippy::all)]
+unsafe fn l_Sanchoris_Thread_command___closed__0_init() -> Obj {
+let mut x_1: Obj = rt::lean_box(0);
+x_1 = rt::lean_mk_string_unchecked("compact", 7, 7);
+return x_1;
+}
+#[allow(dead_code, non_snake_case, clippy::all)]
+pub(crate) unsafe fn l_Sanchoris_Thread_command___closed__0() -> Obj {
+  thread_local! { static CELL: core::cell::OnceCell<Obj> = const { core::cell::OnceCell::new() }; }
+  if let Some(v) = CELL.with(|c| c.get().copied()) { return v; }
+  let v = l_Sanchoris_Thread_command___closed__0_init();
+  rt::lean_mark_persistent(v); CELL.with(|c| *c.get_or_init(|| v))
+}
+
+#[allow(dead_code, non_snake_case, unused_mut, unused_assignments, unused_variables, unreachable_code, unused_unsafe, clippy::all)]
 pub(crate) unsafe fn l_Sanchoris_Thread_step(mut x_1: Obj, mut x_2: Obj, mut x_3: Obj) -> Obj {
 let mut x_5: Obj = rt::lean_box(0);
 let mut x_7: u8 = 0;
@@ -1967,6 +2120,47 @@ unsafe impl rt::IntoLean<Turn> for Turn {
     }
 }
 
+#[doc = "Lean type `Sanchoris.Thread.Command` (module `Sanchoris.Thread`)."]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Command {
+    Compact,
+    Launch{ name: String },
+    Message,
+}
+impl rt::ToLean for Command {
+    unsafe fn to_lean(self) -> Obj {
+        match self {
+            Command::Compact => rt::lean_box(0),
+            Command::Launch { name: f0 } => { let o = rt::lean_alloc_ctor(1, 1, 0 * core::mem::size_of::<usize>() as u32 + 0); rt::lean_ctor_set(o, 0, rt::ToLean::to_lean(f0)); o },
+            Command::Message => rt::lean_box(2),
+        }
+    }
+}
+impl rt::FromLean for Command {
+    unsafe fn from_lean(o: Obj) -> Self {
+        match rt::lean_obj_tag(o) {
+            0 => Command::Compact,
+            1 => Command::Launch { name: <String as rt::FromLean>::from_lean(rt::lean_ctor_get(o, 0)) },
+            2 => Command::Message,
+            _ => unreachable!(),
+        }
+    }
+}
+unsafe impl rt::LeanRepr for Command {
+    type Value = Command;
+    unsafe fn to_obj(value: Command) -> Obj {
+        rt::ToLean::to_lean(value)
+    }
+    unsafe fn from_obj(o: Obj) -> Command {
+        <Command as rt::FromLean>::from_lean(o)
+    }
+}
+unsafe impl rt::IntoLean<Command> for Command {
+    unsafe fn into_obj(self) -> Obj {
+        rt::ToLean::to_lean(self)
+    }
+}
+
 #[doc = "Lean type `Sanchoris.Thread.Subscription` (module `Sanchoris.Thread`)."]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Subscription {
@@ -2261,6 +2455,20 @@ unsafe impl rt::IntoLean<State> for State {
     }
 }
 
+#[doc = "Lean: `Sanchoris.Thread.command : Option String → Bool → List String → Sanchoris.Thread.Command` (module `Sanchoris.Thread`)."]
+#[::leanfran::exported("Sanchoris.Thread.command")]
+pub fn command(name: Option<String>, rest: bool, skills: Vec<String>) -> Command {
+    unsafe {
+        let __a0: Obj = rt::option_to_lean(name, |v0| rt::ToLean::to_lean(v0));
+        let __a1: u8 = (rest) as u8;
+        let __a2: Obj = rt::list_to_lean(skills, |v0| rt::ToLean::to_lean(v0));
+        let __r: Obj = l_Sanchoris_Thread_command(__a0, __a1, __a2);
+        rt::lean_dec(__a2); let __v = <Command as rt::FromLean>::from_lean(__r);
+        rt::lean_dec(__r);
+        __v
+    }
+}
+
 #[doc = "Lean: `Sanchoris.Thread.step : Sanchoris.Thread.State → Sanchoris.Thread.Event → Sanchoris.Thread.Context → Sanchoris.Thread.State` (module `Sanchoris.Thread`)."]
 #[::leanfran::exported("Sanchoris.Thread.step")]
 pub fn step(s: State, e: Event, c: Context) -> State {
@@ -2408,6 +2616,16 @@ pub fn is_running(arg0: State) -> bool {
 #[allow(unused_imports, clippy::all)]
 pub mod lean {
     use super::*;
+    #[doc = "`command` on handles. Lean: `Sanchoris.Thread.command : Option String → Bool → List String → Sanchoris.Thread.Command` (module `Sanchoris.Thread`)."]
+    pub fn command(name: impl rt::IntoLean<Option<String>>, rest: impl rt::IntoLean<bool>, skills: impl rt::IntoLean<rt::List<String>>) -> rt::Lean<Command> {
+        unsafe {
+            let __a0: Obj = rt::IntoLean::<Option<String>>::into_obj(name);
+            let __a1: u8 = { let o = rt::IntoLean::<bool>::into_obj(rest); let v = rt::lean_unbox(o) as u8; rt::lean_dec(o); v };
+            let __a2: Obj = rt::IntoLean::<rt::List<String>>::into_obj(skills);
+            let __r: Obj = l_Sanchoris_Thread_command(__a0, __a1, __a2);
+            rt::lean_dec(__a2); rt::Lean::from_owned(__r)
+        }
+    }
     #[doc = "`step` on handles. Lean: `Sanchoris.Thread.step : Sanchoris.Thread.State → Sanchoris.Thread.Event → Sanchoris.Thread.Context → Sanchoris.Thread.State` (module `Sanchoris.Thread`)."]
     pub fn step(s: impl rt::IntoLean<State>, e: impl rt::IntoLean<Event>, c: impl rt::IntoLean<Context>) -> rt::Lean<State> {
         unsafe {
@@ -2525,6 +2743,16 @@ pub mod lean {
 #[allow(unused_imports, clippy::all)]
 pub mod local {
     use super::*;
+    #[doc = "`command` on handles. Lean: `Sanchoris.Thread.command : Option String → Bool → List String → Sanchoris.Thread.Command` (module `Sanchoris.Thread`)."]
+    pub fn command(name: impl rt::IntoLean<Option<String>>, rest: impl rt::IntoLean<bool>, skills: impl rt::IntoLean<rt::List<String>>) -> rt::Local<Command> {
+        unsafe {
+            let __a0: Obj = rt::IntoLean::<Option<String>>::into_obj(name);
+            let __a1: u8 = { let o = rt::IntoLean::<bool>::into_obj(rest); let v = rt::lean_unbox(o) as u8; rt::lean_dec(o); v };
+            let __a2: Obj = rt::IntoLean::<rt::List<String>>::into_obj(skills);
+            let __r: Obj = l_Sanchoris_Thread_command(__a0, __a1, __a2);
+            rt::lean_dec(__a2); rt::Local::from_owned(__r)
+        }
+    }
     #[doc = "`step` on handles. Lean: `Sanchoris.Thread.step : Sanchoris.Thread.State → Sanchoris.Thread.Event → Sanchoris.Thread.Context → Sanchoris.Thread.State` (module `Sanchoris.Thread`)."]
     pub fn step(s: impl rt::IntoLean<State>, e: impl rt::IntoLean<Event>, c: impl rt::IntoLean<Context>) -> rt::Local<State> {
         unsafe {

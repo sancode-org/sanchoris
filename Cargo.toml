@@ -18,11 +18,22 @@ aws-sdk-dynamodb = { version = "1", default-features = false, features = [
   "default-https-client",
   "rt-tokio",
 ] }
+aws-sdk-dynamodbstreams = { version = "1", default-features = false, features = [
+  "default-https-client",
+  "rt-tokio",
+] }
 aws-sdk-s3 = { version = "1", default-features = false, features = [
   "default-https-client",
   "rt-tokio",
 ] }
-axum = "0.8"
+aes-gcm = "0.10"
+async-graphql = "7.2.1"
+async-graphql-axum = "7.2.1"
+base64 = "0.22"
+futures-util = "0.3"
+getrandom = "0.3"
+hmac = "0.12"
+axum = { version = "0.8", features = ["ws"] }
 clap = { version = "4", features = ["derive"] }
 indexmap = "2"
 leanfran = { version = "=0.14.0", default-features = false }

@@ -7,3 +7,9 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+async-graphql.workspace = true
+sanchoris-core = { path = "../core" }
+sanchoris-engine = { path = "../engine" }
+sanchoris-worker = { path = "../worker" }
+serde.workspace = true
+serde_json.workspace = true

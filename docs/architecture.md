@@ -39,6 +39,7 @@ Every key of a User is in the partition `U#<user>`, or in a partition that start
 | `THREAD#<parent>#CHILD#<child>` | `child` | A child thread under its parent, with how it was made (`subagent`, `fork`) |
 | `THREAD#<name>#OUT#<seq>` | `outbox` | Messages of the Thread channel from `first_seq`, one item for each write |
 | `THREAD#<name>#OUTSEQ` | `outbox_seq` | `last`: the last `seq` of the outbox |
+| `THREAD#<name>#INST#<instance>` | `inbound` | `seq`: the last message of an `instanceId` of `sanchoris-agent` that the control plane took |
 | `THREAD#<name>#RUN#<run>` | `thread_run` | A SkillRun of the thread |
 | `THREAD#<name>#AWAIT` | `await_order` | `order`: the order of the last `await` of the thread |
 | `RUN#<run>` | `skill_run` | A SkillRun: its record (`body`), `thread`, `status`, `version` |
@@ -49,11 +50,19 @@ Every key of a User is in the partition `U#<user>`, or in a partition that start
 | `EJOB#<id>` | `engine_job` | A job of the engine: a command to send, or a timer, with `due` and `thread` |
 | `SEQ#RUN`, `SEQ#EJOB` | `sequence` | `last`: the last SkillRun and the last job of the engine |
 | `JOB#<id>` | `job` | A job of a process, such as `start#<thread>` for the thread-starter |
-| `MARK#<kind>#<id>` | `mark` | A mark that makes an operation happen once (a GitHub delivery, a Stripe event) |
+| `MARK#<kind>#<id>` | `mark` | A mark that makes an operation happen once: a GitHub delivery, a Stripe event, a spent bootstrap token (`bootstrap#<token ID>`), a message of an agent (`in#<thread>#<instance>#<seq>`), a notification delivered to a thread (`notice#<thread>#<outbox seq>`) |
 
 The audit table keys an audit event by `U#<user>` and `AUDIT#<at>#<id>`.
 
-S3 keeps the objects of a User under `u/<user>/`. The values of SkillRuns are under `u/<user>/runs/<run>/<SHA-256>`.
+S3 keeps the objects of a User under `u/<user>/`:
+
+| Key | What it holds |
+|---|---|
+| `u/<user>/runs/<run>/<SHA-256>` | The values of SkillRuns |
+| `u/<user>/skills/<SHA-256>` | The document and definition of a Skill of a Config, and the skills archive of a Workspace |
+| `u/<user>/threads/<name>/definition.json` | The `Definition` of a thread: its Project and callable Skills at the start |
+| `u/<user>/threads/<name>/records/<turn>.tar.gz` | The thread records, which `sanchoris-agent` uploads |
+| `u/<user>/threads/<name>/log/<at>-<instance>-<seq>.json` | The log of a thread: the `event`, `script_result`, `rate_limit` and `stopping` messages |
 
 ## Writes
 
@@ -81,3 +90,17 @@ The thread-starter (`sanchoris_core::thread::start_pending`) decides with `Sanch
 6. Otherwise one transaction writes the Trigger event, the thread key, the count of the hour, the thread, its first Message and the job of the thread-starter.
 
 The thread of a delivery is named by the SHA-256 of the Config, the Trigger and the delivery.
+
+## Thread channel
+
+The control side of the Thread channel is `sanchoris_worker::channel`: `connect` checks the token, `receive` takes one frame and `disconnect` ends a connection. A handler keeps nothing between calls; the User, thread and Workspace of a connection come from its token.
+
+- Tokens are HMAC-SHA256 under `THREAD_TOKEN_SIGNING_KEY` and name the User, the thread and the Workspace. A bootstrap token is spent by its mark; a token for a Workspace that is not the last of its thread, or is `stopped`, is refused with 403.
+- A message with `seq` takes effect once: its writes and the mark `in#<thread>#<instance>#<seq>` are one transaction, and a message at or below the `inbound` cursor is acknowledged again.
+- The dispatcher is the one sender of the outbox. A Workspace keeps its `connection`, the `instance` of its agent, `outbox_from` (the outbox before it, which it does not get) and `sent` (the last message sent on the connection). `hello` sets them, and the dispatcher sends the outbox after `sent` in order whenever the outbox or the Workspace changes.
+- `start` and `credentials` are written as stubs and made when they are sent: the tokens, the provider credential and the presigned URLs are never stored. The first `start` of a thread takes its queued inputs as the instruction; a restored Workspace takes the inputs that waited, its thread record, and the commands of the SkillRuns again on `ready`.
+- `turn_end` writes the Turn, the reply as a Message, the counts and the Usage and the step of the thread in one transaction. A `skill_notice` of the outbox becomes an input of the thread with its Message.
+
+## Local control plane
+
+`sanchoris_api::local` runs the control plane in one process: the dispatcher reads the stream of DynamoDB Local, one queue in memory runs the jobs in order, a timer stands in for each schedule, the Workspaces are `sanchoris-agent` processes (`sanchoris_worker::local::LocalLauncher`, behind `Launcher` with the ECS and Host ones), the presigned URLs are signed routes of the server (`/local/blobs/<key>`, `/local/records`), and bare repositories stand in for GitHub. `.env.example` has its settings.

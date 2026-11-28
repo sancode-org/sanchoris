@@ -10,7 +10,14 @@ export default defineConfig({
     singleQuote: false,
     trailingComma: "all",
     sortPackageJson: false,
-    ignorePatterns: ["**/*.md", "**/generated/**", "lean/**", "audit/**", "crates/**"],
+    ignorePatterns: [
+      "**/*.md",
+      "**/generated/**",
+      "**/graphql/schema.graphql",
+      "lean/**",
+      "audit/**",
+      "crates/**",
+    ],
   },
   lint: {
     categories: { correctness: "error", suspicious: "warn" },

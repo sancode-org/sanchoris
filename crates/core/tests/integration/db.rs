@@ -126,6 +126,9 @@ async fn every_entity_is_read_back_as_it_was_written() {
             account: None,
             state: "connected".into(),
             last_used_at: Some(NOW),
+            secret_kind: Some("claude_oauth_token".into()),
+            secret: Some("sealed".into()),
+            version: 1,
         },
     )
     .await;
@@ -315,6 +318,10 @@ async fn every_entity_is_read_back_as_it_was_written() {
                 name: "frontend".into(),
                 commit: "abc".into(),
             }],
+            outbox_from: 3,
+            connection: Some("conn-1".into()),
+            instance: Some("inst-1".into()),
+            sent: 4,
         },
     )
     .await;

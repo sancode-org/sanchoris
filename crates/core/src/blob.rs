@@ -91,6 +91,31 @@ impl Blobs {
         }
     }
 
+    /// The keys under a prefix, in order.
+    pub async fn list(&self, prefix: &str) -> Result<Vec<String>, DbError> {
+        match self {
+            Blobs::S3 { client, bucket } => {
+                let mut keys = Vec::new();
+                let mut pages = client
+                    .list_objects_v2()
+                    .bucket(bucket)
+                    .prefix(prefix)
+                    .into_paginator()
+                    .send();
+                while let Some(page) = pages.next().await {
+                    let page = page.map_err(|e| DbError::Unavailable(format!("S3: {e:?}")))?;
+                    keys.extend(
+                        page.contents()
+                            .iter()
+                            .filter_map(|o| o.key().map(String::from)),
+                    );
+                }
+                Ok(keys)
+            }
+            Blobs::Memory(_) => Ok(self.keys(prefix)),
+        }
+    }
+
     /// The keys under a prefix, for tests.
     pub fn keys(&self, prefix: &str) -> Vec<String> {
         match self {

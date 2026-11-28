@@ -1171,3 +1171,24 @@ pub async fn abort_runs(
     }
     Ok(())
 }
+
+/// A message of the outbox as it goes on the Thread channel: each slot replaced by its value,
+/// read from S3 when it is there.
+pub async fn resolve_slots(blobs: &Blobs, mut v: Value) -> Result<Value, DbError> {
+    let mut found = Vec::new();
+    slots(&v, &mut Vec::new(), &mut found);
+    for p in found {
+        let slot = at(&mut v, &p);
+        let value = if let Some(key) = slot.get("$b").and_then(Value::as_str) {
+            let bytes = blobs
+                .get(key)
+                .await?
+                .ok_or_else(|| DbError::Invalid(format!("no object {key}")))?;
+            serde_json::from_slice(&bytes).map_err(|e| DbError::Invalid(e.to_string()))?
+        } else {
+            slot["$v"].take()
+        };
+        *slot = value;
+    }
+    Ok(v)
+}

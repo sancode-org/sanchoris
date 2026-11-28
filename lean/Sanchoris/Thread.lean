@@ -450,4 +450,66 @@ theorem decideStart_pending_iff (d : Demand) (p : Placement) (r : PendingReason)
     cases p <;> cases r <;> simp [decideStart, hb, hs, hc, hw] <;>
     repeat' (first | split | omega | simp_all)
 
+/-- What a message of a User is (`skill.md`「User の起動」): the compact of the Worker, the
+launch of a predictable Skill of the thread, or a message to the thread. -/
+inductive Command where
+  | compact
+  | launch (name : String)
+  | message
+  deriving DecidableEq, Repr
+
+/-- Reads a message by the name after its leading `/` (`none` without one), whether text
+follows the name, and the predictable Skills of the thread. -/
+def command (name : Option String) (rest : Bool) (skills : List String) : Command :=
+  match name with
+  | none => .message
+  | some n =>
+    if n = "compact" ∧ rest = false then .compact
+    else if skills.contains n then .launch n
+    else .message
+
+/-- `/compact` alone is the compact of the Worker. -/
+theorem command_compact_iff (name : Option String) (rest : Bool) (skills : List String) :
+    command name rest skills = .compact ↔ name = some "compact" ∧ rest = false := by
+  cases name with
+  | none => simp [command]
+  | some m =>
+    by_cases hc : m = "compact" ∧ rest = false
+    · obtain ⟨rfl, rfl⟩ := hc
+      simp [command]
+    · have hn : ¬(some m = some "compact" ∧ rest = false) := fun ⟨h1, h2⟩ =>
+        hc ⟨Option.some.inj h1, h2⟩
+      by_cases hm : skills.contains m = true <;>
+        simp only [command, hc, hm, hn, ↓reduceIte, reduceCtorEq] <;> simp
+
+/-- A User launches only a predictable Skill of the thread, named after the `/`. -/
+theorem command_launch_iff (name : Option String) (rest : Bool) (skills : List String)
+    (n : String) :
+    command name rest skills = .launch n ↔
+      name = some n ∧ n ∈ skills ∧ ¬(n = "compact" ∧ rest = false) := by
+  cases name with
+  | none => simp [command]
+  | some m =>
+    by_cases hc : m = "compact" ∧ rest = false
+    · obtain ⟨rfl, rfl⟩ := hc
+      simp only [command, and_self, ↓reduceIte, reduceCtorEq, false_iff]
+      intro ⟨h1, _, h3⟩
+      simp_all
+    · by_cases hm : skills.contains m = true
+      · simp only [command, hc, hm, ↓reduceIte, Command.launch.injEq, Option.some.injEq]
+        constructor
+        · intro h
+          subst h
+          exact ⟨rfl, by simpa using hm, hc⟩
+        · intro ⟨h, _, _⟩
+          exact h
+      · simp only [command, hc, hm, ↓reduceIte, reduceCtorEq, false_iff, Option.some.injEq]
+        intro ⟨h, h2, _⟩
+        subst h
+        exact hm (by simpa using h2)
+
+/-- A message without a leading `/` goes to the thread. -/
+theorem command_none (rest : Bool) (skills : List String) :
+    command none rest skills = .message := rfl
+
 end Sanchoris.Thread

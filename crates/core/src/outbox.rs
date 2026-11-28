@@ -93,3 +93,19 @@ pub async fn messages(db: &Db, user: &str, thread: &str) -> Result<Vec<(u64, Val
     }
     Ok(out)
 }
+
+/// Appends messages to the outbox in a transaction of their own, reading `last` again when
+/// another wrote the outbox meanwhile.
+pub async fn push(db: &Db, user: &str, thread: &str, bodies: &[Value]) -> Result<(), DbError> {
+    for _ in 0..20 {
+        let last = last_seq(db, user, thread).await?;
+        let mut tx = db.tx(user);
+        append(&mut tx, thread, last, bodies)?;
+        match tx.commit().await {
+            Ok(()) => return Ok(()),
+            Err(DbError::Condition { .. } | DbError::Conflict) => continue,
+            Err(e) => return Err(e),
+        }
+    }
+    Err(DbError::Conflict)
+}

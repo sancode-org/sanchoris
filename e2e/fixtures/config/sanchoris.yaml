@@ -1,0 +1,32 @@
+Version: 1
+Projects:
+  app:
+    Repos:
+      app: { Repo: github.com/acme/app }
+    DefaultModel: { Agent: claude, Model: claude-fake, Credential: local }
+    Scripts:
+      setup:
+        {
+          Command: "echo setup is broken >&2; exit 3",
+          RunOnCreate: true,
+          Async: true,
+          TimeoutSeconds: 60,
+        }
+      report: { Command: "echo report-output", TimeoutSeconds: 60 }
+    UsageLimit: { Resume: manual }
+    Workspace: { Host: cloud, Architecture: arm64, IdleSeconds: 900 }
+  strict:
+    Repos:
+      app: { Repo: github.com/acme/app }
+    DefaultModel: { Agent: claude, Model: claude-fake, Credential: local }
+    Scripts:
+      setup:
+        {
+          Command: "echo strict setup failed >&2; exit 4",
+          RunOnCreate: true,
+          Async: false,
+          TimeoutSeconds: 60,
+        }
+    UsageLimit: { Resume: manual }
+    Workspace: { Host: cloud, Architecture: arm64, IdleSeconds: 900 }
+Triggers: {}

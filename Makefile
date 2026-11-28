@@ -1,6 +1,6 @@
 GENERATED := 'crates/*/src/generated/*' 'apps/*/src/generated/*'
 
-.PHONY: check generate format
+.PHONY: check generate format e2e
 
 node_modules/.modules.yaml: package.json pnpm-lock.yaml pnpm-workspace.yaml apps/*/package.json
 	vp install --frozen-lockfile
@@ -15,9 +15,13 @@ check: node_modules/.modules.yaml
 	cargo clippy --all-targets -- -D warnings
 	cargo test
 	vp run check
+	pnpm e2e
 
 generate:
 	leanfran generate
+
+e2e: node_modules/.modules.yaml
+	pnpm e2e
 
 format:
 	nix fmt
