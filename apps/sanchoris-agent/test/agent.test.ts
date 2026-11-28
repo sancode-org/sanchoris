@@ -140,6 +140,7 @@ describe("sanchoris-agent against a fake control plane", { timeout: 60_000 }, ()
 
     first.control.send({ type: "shutdown", reason: "idle" })
     expect(await first.agent.exited).toBe(0)
+    expect([...first.control.records.keys()]).toEqual([record1.key, record2.key])
 
     const second = await workspace("w2")
     second.control.records.set(

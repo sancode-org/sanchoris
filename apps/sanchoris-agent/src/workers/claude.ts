@@ -74,6 +74,8 @@ export class ClaudeWorker implements Worker {
   private inTurn = false
   private turnStarted = false
   private interrupting = false
+  private steered = false
+  private steeredUsage: SDKResultMessage["usage"][] = []
   private closing = false
   private rejectedRateLimit: SDKRateLimitInfo | null = null
 
@@ -94,13 +96,7 @@ export class ClaudeWorker implements Worker {
         ...(resumeSessionId ? { resume: sessionId } : { sessionId }),
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
-        canUseTool: async (toolName, input) =>
-          toolName === "AskUserQuestion"
-            ? {
-                behavior: "deny",
-                message: "No one answers questions in this thread. Decide and go on.",
-              }
-            : { behavior: "allow", updatedInput: input },
+        disallowedTools: ["AskUserQuestion"],
         thinking: { type: "adaptive", display: "summarized" },
         settings: { showThinkingSummaries: true },
         settingSources: ["user", "project", "local"],
@@ -123,6 +119,7 @@ export class ClaudeWorker implements Worker {
 
   async steer(text: string): Promise<boolean> {
     if (!this.inTurn || !this.turnStarted) return false
+    this.steered = true
     this.input.push(userMessage(text, "now"))
     return true
   }
@@ -196,7 +193,17 @@ export class ClaudeWorker implements Worker {
         onRateLimit(claudeRateLimit(message.rate_limit_info))
         return
       case "result":
+        if (
+          this.steered &&
+          !this.interrupting &&
+          (message.terminal_reason === "aborted_streaming" ||
+            message.terminal_reason === "aborted_tools")
+        ) {
+          this.steeredUsage.push(message.usage)
+          return
+        }
         this.inTurn = false
+        this.steered = false
         onTurnEnd(this.turnResult(message))
         return
       default:
@@ -211,6 +218,9 @@ export class ClaudeWorker implements Worker {
     const interrupted = this.interrupting
     this.rejectedRateLimit = null
     this.interrupting = false
+    const segments = [...this.steeredUsage.splice(0), message.usage]
+    const sum = (read: (usage: SDKResultMessage["usage"]) => number | null | undefined) =>
+      segments.reduce((total, usage) => total + (read(usage) ?? 0), 0)
     return {
       result: interrupted ? "interrupted" : failed ? "failed" : "completed",
       summary: interrupted && message.subtype !== "success" ? "" : summary,
@@ -221,10 +231,10 @@ export class ClaudeWorker implements Worker {
             ? { code: "Worker.UsageLimit", message: summary, resetsAt: rejected.resetsAt ?? null }
             : { code: "Worker.Failed", message: summary, resetsAt: null },
       usage: {
-        inputTokens: message.usage.input_tokens,
-        outputTokens: message.usage.output_tokens,
-        cacheReadInputTokens: message.usage.cache_read_input_tokens ?? 0,
-        cacheCreationInputTokens: message.usage.cache_creation_input_tokens ?? 0,
+        inputTokens: sum((usage) => usage.input_tokens),
+        outputTokens: sum((usage) => usage.output_tokens),
+        cacheReadInputTokens: sum((usage) => usage.cache_read_input_tokens),
+        cacheCreationInputTokens: sum((usage) => usage.cache_creation_input_tokens),
       },
       costUsd: message.total_cost_usd,
       durationMs: message.duration_ms,

@@ -70,6 +70,7 @@ export class Agent {
   private turn: Turn = "idle"
   private turnNumber = 0
   private turnFinished: Promise<void> = Promise.resolve()
+  private savedRecord: { turn: number; key: string } | null = null
   private queued: string[] = []
   private compactQueued = false
   private output = false
@@ -356,10 +357,13 @@ export class Agent {
     })
   }
 
+  /** Saves the record of `turn` once; a turn that the record of `start` ends is not saved again. */
   private async saveRecord(turn: number): Promise<string | null> {
     const session = this.session
     const upload = this.credentials?.recordUpload
     if (!session || !upload) return null
+    if (this.savedRecord?.turn === turn) return this.savedRecord.key
+    if (turn === (session.start.record?.turn ?? 0)) return null
     const bytes = await packRecord(session.home, session.provider.recordExclude)
     const key = `${upload.keyPrefix}${String(turn).padStart(6, "0")}.tar.gz`
     await uploadRecord(upload, key, bytes)
@@ -371,6 +375,7 @@ export class Agent {
       sha256: sha256(bytes),
       bytes: bytes.length,
     })
+    this.savedRecord = { turn, key }
     return key
   }
 

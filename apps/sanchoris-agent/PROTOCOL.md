@@ -38,7 +38,7 @@ The Worker and the commands run with the agent's environment without the bootstr
 | `start` | `thread` (`name`, `title`), `project` (`name`, `repos`, `scripts`), `worker` (`agent`, `model`, `credential`), `gitAuthor`, `skills` (`url`, `sha256`, `entries`), `record`, `instruction`, `heartbeatSeconds` | Once per process. The agent unpacks `record` (the thread record to resume, with the provider `sessionId` and the `turn` it ends), clones each repository on its branch (`sanchoris/<Name>`), unpacks the skills archive into `/skills`, places the `SKILL.md` of every entry where the Worker reads its skills, puts the credential where the provider reads it, starts the Worker, answers `ready`, runs the `RunOnCreate` scripts, and starts the first turn with `instruction` (after the scripts with `async: false`; when one fails, `instruction` waits for the next `input`) |
 | `input` | `inputId`, `text`, `delivery` (`steer`, `turn`) | An input of the thread. What the agent does is `Sanchoris.AgentInput.deliver`: with no turn it starts one; `steer` goes into a running turn of a Worker that takes steers; everything else waits and becomes the input of the next turn, joined by blank lines. A steer that the turn ends before also waits |
 | `interrupt` | | Interrupts the turn; it ends with `turn_end` `result: "interrupted"` |
-| `shutdown` | `reason` | Interrupts the turn, commits and pushes, saves the record (`thread_record`), waits up to 10 s for the `ack`s and exits 0 |
+| `shutdown` | `reason` | Interrupts the turn, commits and pushes, waits up to 10 s for the `ack`s and exits 0 |
 | `compact` | | Compacts the conversation in a turn of its own (Claude `/compact`, Codex `thread/compact/start`); during a turn it waits for the turn to end |
 | `exec` | `idempotencyKey`, `skill` (`name`, `runId`), `run`, `stdin`, `timeoutSeconds` | Runs `run` with `bash -c` in the workspace directory with `stdin` on standard input, next to the turn. At `timeoutSeconds` it kills the process group. Answers `exec_result`; the same key is answered from the first run |
 | `script` | `scriptRunId`, `name` | Runs the Project script `name` (from the screen) and answers `script_result` |
@@ -62,7 +62,7 @@ The Worker and the commands run with the agent's environment without the bootstr
 | `exec_result` | `idempotencyKey`, `exitCode`, `stdout`, `stderr` (the last 64 KiB of each), `timedOut` | |
 | `script_result` | `scriptRunId` (`create:<name>` for `RunOnCreate`), `name`, `exitCode`, `stderrTail` (16 KiB), `timedOut` | |
 | `credential_update` | `credential` | The provider refreshed its credential file (`claude_credentials_json`, `codex_auth_json`); checked after each turn and every minute |
-| `thread_record` | `turn`, `sessionId`, `key`, `sha256`, `bytes` | The provider's state directory, without its credential file and its skills, as a gzipped tar uploaded to `<keyPrefix><turn as 6 digits>.tar.gz`, after each turn and before the process ends |
+| `thread_record` | `turn`, `sessionId`, `key`, `sha256`, `bytes` | The provider's state directory, without its credential file and its skills, as a gzipped tar uploaded to `<keyPrefix><turn as 6 digits>.tar.gz` once per turn, at its end. `shutdown` and `stopping` point at the record of the last turn |
 | `stopping` | `commits`, `recordKey` | SIGTERM: the agent interrupted the turn, pushed, saved the record, and exits 0 |
 
 ## Commands
