@@ -1,0 +1,15 @@
+name = "sanchoris-audit"
+defaultTargets = ["Audit"]
+
+[[lean_lib]]
+name = "Audit"
+globs = ["Audit.+"]
+
+[[require]]
+name = "sanchoris"
+path = "../lean"
+
+[[require]]
+name = "assay"
+git = "https://github.com/conao3/lean-leanassay"
+rev = "c137d1d059aa213ee21d043ffd4faf8220e2bf33"

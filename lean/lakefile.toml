@@ -1,0 +1,6 @@
+name = "sanchoris"
+defaultTargets = ["Sanchoris"]
+
+[[lean_lib]]
+name = "Sanchoris"
+globs = ["Sanchoris.+"]

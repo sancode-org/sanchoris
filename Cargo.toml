@@ -1,0 +1,16 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/sancode-org/sanchoris"
+
+[workspace.dependencies]
+axum = "0.8"
+clap = { version = "4", features = ["derive"] }
+leanfran = { version = "=0.14.0", default-features = false }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal"] }
+tower-http = { version = "0.6", features = ["fs"] }

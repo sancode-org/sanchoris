@@ -1,0 +1,14 @@
+[package]
+name = "sanchoris-driver"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "sanchoris-driver"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true

@@ -1,0 +1,11 @@
+{
+  "name": "@sanchoris/sanchoris-agent",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "sanchoris-agent": "./src/main.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.11"
+  }
+}
