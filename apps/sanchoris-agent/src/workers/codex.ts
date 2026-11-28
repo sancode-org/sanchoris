@@ -263,17 +263,22 @@ export class CodexWorker implements Worker {
         }
         return
       }
+      case "item/started": {
+        const item = (params as { item: CodexItem }).item
+        if (item.type === "commandExecution")
+          onEvent("tool_use", {
+            id: item.id ?? null,
+            name: "commandExecution",
+            input: { command: item.command ?? null },
+          })
+        return
+      }
       case "item/completed": {
         const item = (params as { item: CodexItem }).item
         if (item.type === "agentMessage") {
           this.lastText = item.text ?? ""
           onEvent("text", { text: this.lastText })
         } else if (item.type === "commandExecution") {
-          onEvent("tool_use", {
-            id: item.id ?? null,
-            name: "commandExecution",
-            input: { command: item.command ?? null },
-          })
           onEvent("tool_result", {
             toolUseId: item.id ?? null,
             isError: (item.exitCode ?? 0) !== 0,

@@ -58,7 +58,7 @@ function start(
     },
     worker: {
       agent,
-      model: model ?? (agent === "claude" ? "claude-sonnet-5-5" : "gpt-5.5-codex"),
+      model: model ?? (agent === "claude" ? "claude-sonnet-5-5" : "gpt-6.2-sol"),
       credential,
     },
     gitAuthor: { name: "sanchoris", email: "agent@sanchoris.invalid" },
